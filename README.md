@@ -73,3 +73,4 @@ export default defineConfig([
 ```
 # afritrust-identity-frontend
 # afritrust-identity-frontend
+# afritrust-identity-frontend
