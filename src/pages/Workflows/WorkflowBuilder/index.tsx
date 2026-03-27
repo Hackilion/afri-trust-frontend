@@ -2,6 +2,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
+  Eye,
+  GitBranch,
   GripVertical,
   Plus,
   Send,
@@ -22,6 +24,7 @@ import {
   WorkflowFlowCanvas,
   type WorkflowStepCreatePayload,
 } from '../../../components/workflow/WorkflowFlowCanvas';
+import { WorkflowIntegrationPreview } from '../../../components/workflow/WorkflowIntegrationPreview';
 import {
   validateWorkflow,
   type WorkflowValidationResult,
@@ -29,6 +32,7 @@ import {
 } from '../../../lib/workflowValidation';
 import { useDeveloperStore } from '../../../store/developerStore';
 import { useSession } from '../../../hooks/useSession';
+import { cn } from '../../../lib/utils';
 import type {
   Workflow,
   WorkflowGraphEdge,
@@ -390,6 +394,7 @@ export default function WorkflowBuilder() {
   const [nameValue, setNameValue] = useState('');
   const [dryRunOpen, setDryRunOpen] = useState(false);
   const [dryRunResult, setDryRunResult] = useState<DryRunResult | null>(null);
+  const [builderTab, setBuilderTab] = useState<'workflow' | 'preview'>('workflow');
 
   const validation = useMemo(() => {
     if (!workflow) return null;
@@ -595,103 +600,148 @@ export default function WorkflowBuilder() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
-        <div className="space-y-3 min-w-0">
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Flow canvas ({workflow.steps.length} steps)
-            </p>
-            <p className="text-[11px] text-gray-400 max-w-xl">
-              Scroll to pan · drag nodes · connect handles for branches · Delete removes selected edges
-            </p>
-          </div>
-          <WorkflowFlowCanvas
-            workflow={workflow}
-            readOnly={!isEditable}
-            onSync={handleSync}
-            onDropStep={handleDropStep}
-            onRemoveStep={handleRemoveStep}
-          />
-        </div>
-
-        <div className="space-y-4">
-          <ValidationSummary result={validation} />
-
-          <CompanyMetadataForm
-            key={`${workflow.id}-${(workflow.tags ?? []).join(',')}`}
-            workflow={workflow}
-            isEditable={isEditable}
-            onPatch={patchCompany}
-          />
-
-          <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-2 text-xs text-gray-500">
-            <div className="flex justify-between">
-              <span>Created by</span>
-              <span className="text-gray-700">{workflow.createdBy}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Version</span>
-              <span className="text-gray-700">{workflow.version}</span>
-            </div>
-            {workflow.clonedFromId && (
-              <div className="flex justify-between">
-                <span>Cloned from</span>
-                <span className="text-gray-700">{workflow.clonedFromId}</span>
-              </div>
-            )}
-            {workflow.industryVertical && (
-              <div className="flex justify-between">
-                <span>Vertical</span>
-                <span className="text-gray-700">{workflow.industryVertical}</span>
-              </div>
-            )}
-            {workflow.tags && workflow.tags.length > 0 && (
-              <div className="pt-1">
-                <span className="text-gray-400">Tags</span>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {workflow.tags.map(t => (
-                    <span key={t} className="px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[10px]">
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            <p className="text-gray-400 pt-1 leading-relaxed">{workflow.description}</p>
-          </div>
-
-          {workflowDevMode && (
-            <div className="rounded-xl border border-violet-200 bg-white p-4 space-y-3 text-xs">
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-semibold text-violet-900 uppercase tracking-wider text-[10px]">Sandbox simulation</p>
-                <button
-                  type="button"
-                  onClick={runDryRun}
-                  disabled={dryRun.isPending || workflow.steps.length === 0}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-600 text-white text-[11px] font-medium hover:bg-violet-700 disabled:opacity-50"
-                >
-                  <PlayCircle size={12} />
-                  Run dry-run
-                </button>
-              </div>
-              <p className="text-[11px] text-gray-500 leading-relaxed">
-                Computes parallel waves from the current graph (no side effects). Use to verify branching before publishing.
-              </p>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-medium text-gray-500 uppercase">Definition JSON</span>
-                  <CopyButton value={workflowDefinitionJson(workflow)} className="!text-[10px]" />
-                </div>
-                <pre className="max-h-40 overflow-auto rounded-lg bg-slate-900 text-slate-100 p-2 text-[10px] font-mono leading-relaxed">
-                  {workflowDefinitionJson(workflow)}
-                </pre>
-              </div>
-            </div>
+      <div
+        className="flex w-full max-w-2xl rounded-xl border border-gray-200/90 bg-gray-50/80 p-1 shadow-sm"
+        role="tablist"
+        aria-label="Workflow builder views"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={builderTab === 'workflow'}
+          onClick={() => setBuilderTab('workflow')}
+          className={cn(
+            'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all min-w-0 sm:flex-initial sm:px-6',
+            builderTab === 'workflow'
+              ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200/80'
+              : 'text-gray-500 hover:text-gray-800 hover:bg-white/50'
           )}
-
-          {isEditable && <AddStepPanel onAdd={handleAddStep} disabled={addStep.isPending} />}
-        </div>
+        >
+          <GitBranch className="h-4 w-4 shrink-0" strokeWidth={2.25} />
+          <span>Workflow</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={builderTab === 'preview'}
+          onClick={() => setBuilderTab('preview')}
+          className={cn(
+            'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all min-w-0 sm:flex-initial sm:px-6',
+            builderTab === 'preview'
+              ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200/80'
+              : 'text-gray-500 hover:text-gray-800 hover:bg-white/50'
+          )}
+        >
+          <Eye className="h-4 w-4 shrink-0" strokeWidth={2.25} />
+          <span>Preview</span>
+        </button>
       </div>
+
+      {builderTab === 'workflow' && (
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6" role="tabpanel" aria-label="Workflow editor">
+          <div className="space-y-3 min-w-0">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Flow canvas ({workflow.steps.length} steps)
+              </p>
+              <p className="text-[11px] text-gray-400 max-w-xl">
+                Scroll to pan · drag nodes · connect handles for branches · Delete removes selected edges
+              </p>
+            </div>
+            <WorkflowFlowCanvas
+              workflow={workflow}
+              readOnly={!isEditable}
+              onSync={handleSync}
+              onDropStep={handleDropStep}
+              onRemoveStep={handleRemoveStep}
+            />
+          </div>
+
+          <div className="space-y-4">
+            <ValidationSummary result={validation} />
+
+            <CompanyMetadataForm
+              key={`${workflow.id}-${(workflow.tags ?? []).join(',')}`}
+              workflow={workflow}
+              isEditable={isEditable}
+              onPatch={patchCompany}
+            />
+
+            <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-2 text-xs text-gray-500">
+              <div className="flex justify-between">
+                <span>Created by</span>
+                <span className="text-gray-700">{workflow.createdBy}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Version</span>
+                <span className="text-gray-700">{workflow.version}</span>
+              </div>
+              {workflow.clonedFromId && (
+                <div className="flex justify-between">
+                  <span>Cloned from</span>
+                  <span className="text-gray-700">{workflow.clonedFromId}</span>
+                </div>
+              )}
+              {workflow.industryVertical && (
+                <div className="flex justify-between">
+                  <span>Vertical</span>
+                  <span className="text-gray-700">{workflow.industryVertical}</span>
+                </div>
+              )}
+              {workflow.tags && workflow.tags.length > 0 && (
+                <div className="pt-1">
+                  <span className="text-gray-400">Tags</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {workflow.tags.map(t => (
+                      <span key={t} className="px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[10px]">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <p className="text-gray-400 pt-1 leading-relaxed">{workflow.description}</p>
+            </div>
+
+            {workflowDevMode && (
+              <div className="rounded-xl border border-violet-200 bg-white p-4 space-y-3 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-semibold text-violet-900 uppercase tracking-wider text-[10px]">Sandbox simulation</p>
+                  <button
+                    type="button"
+                    onClick={runDryRun}
+                    disabled={dryRun.isPending || workflow.steps.length === 0}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-600 text-white text-[11px] font-medium hover:bg-violet-700 disabled:opacity-50"
+                  >
+                    <PlayCircle size={12} />
+                    Run dry-run
+                  </button>
+                </div>
+                <p className="text-[11px] text-gray-500 leading-relaxed">
+                  Computes parallel waves from the current graph (no side effects). Use to verify branching before publishing.
+                </p>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-medium text-gray-500 uppercase">Definition JSON</span>
+                    <CopyButton value={workflowDefinitionJson(workflow)} className="!text-[10px]" />
+                  </div>
+                  <pre className="max-h-40 overflow-auto rounded-lg bg-slate-900 text-slate-100 p-2 text-[10px] font-mono leading-relaxed">
+                    {workflowDefinitionJson(workflow)}
+                  </pre>
+                </div>
+              </div>
+            )}
+
+            {isEditable && <AddStepPanel onAdd={handleAddStep} disabled={addStep.isPending} />}
+          </div>
+        </div>
+      )}
+
+      {builderTab === 'preview' && (
+        <div role="tabpanel" aria-label="Integration preview">
+          <WorkflowIntegrationPreview workflow={workflow} variant="tab" />
+        </div>
+      )}
 
       <ConfirmDialog
         open={publishConfirm}
