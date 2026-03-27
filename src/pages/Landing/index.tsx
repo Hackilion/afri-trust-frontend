@@ -1,65 +1,51 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Sparkles } from 'lucide-react';
+import { IlluminatedHero } from '@/components/ui/illuminated-hero';
 import { ProcessDiagram } from './ProcessDiagram';
 
 export default function LandingPage() {
   return (
     <>
-      <section className="relative overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-40"
-          style={{
-            background:
-              'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.35), transparent), radial-gradient(ellipse 60% 40% at 100% 50%, rgba(52, 211, 153, 0.12), transparent), radial-gradient(ellipse 50% 30% at 0% 80%, rgba(167, 139, 250, 0.15), transparent)',
-          }}
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_0%,#0c0c12_100%)] h-32 bottom-0 top-auto pointer-events-none" />
-
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-16 pb-20 sm:pt-24 sm:pb-28">
-          <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/25 bg-indigo-500/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-indigo-200/90 mb-8 animate-fade-in">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-300" />
-            Identity for African-scale operations
+      <IlluminatedHero
+        badge={
+          <div className="inline-flex animate-fade-in items-center gap-2 rounded-full border border-indigo-500/25 bg-indigo-500/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-indigo-200/90">
+            <Sparkles className="h-3.5 w-3.5 text-indigo-300" />
+            Unified identity for Africa&apos;s digital economy
           </div>
+        }
+        headlinePrefix="Verify Once. Belong Everywhere."
+        highlightText="One Identity."
+        headlineSuffix="Trusted Across Africa."
+        description={
+          <>
+            AfriTrust is the unified identity layer for Africa&apos;s digital economy. Help your users skip the paperwork,
+            stay compliant with local and international regulations, and onboard in seconds — not days.
+          </>
+        }
+      >
+        <Link
+          to="/register"
+          className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3.5 text-sm font-semibold text-white shadow-xl shadow-indigo-950/50 transition-transform hover:translate-y-[-1px] hover:bg-indigo-500"
+        >
+          Create account
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+        <Link
+          to="/login"
+          className="inline-flex items-center rounded-xl border border-white/[0.12] px-6 py-3.5 text-sm font-medium text-[#c8c8e0] transition-colors hover:bg-white/[0.05]"
+        >
+          Log in to your instance
+        </Link>
+      </IlluminatedHero>
 
-          <h1 className="font-display text-[clamp(2.25rem,5vw,3.75rem)] font-semibold text-white leading-[1.08] tracking-tight max-w-3xl animate-fade-in">
-            One instance.{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-violet-200 to-emerald-200/90">
-              Email-first signup
-            </span>
-            , then company onboarding and full trust infrastructure.
-          </h1>
-
-          <p className="mt-6 text-lg text-[#9a9ab8] max-w-2xl leading-relaxed animate-fade-in">
-            Register with your company email, then tell us how your organisation operates — so verification defaults and
-            compliance cues match your markets from day one. Log in anytime to the same workspace.
-          </p>
-
-          <div className="mt-10 flex flex-wrap items-center gap-3 animate-fade-in">
-            <Link
-              to="/register"
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500 shadow-xl shadow-indigo-950/50 transition-transform hover:translate-y-[-1px]"
-            >
-              Create account
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-            <Link
-              to="/login"
-              className="inline-flex items-center px-6 py-3.5 rounded-xl border border-white/[0.12] text-sm font-medium text-[#c8c8e0] hover:bg-white/[0.05] transition-colors"
-            >
-              Log in to your instance
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <section id="how-it-works" className="relative py-20 sm:py-28 border-t border-white/[0.06]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="max-w-xl mb-14 sm:mb-16">
+      <section id="how-it-works" className="relative border-t border-white/[0.06] py-20 sm:py-28">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="mb-14 max-w-xl sm:mb-16">
             <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-indigo-400/90">How it flows</p>
-            <h2 className="mt-3 font-display text-3xl sm:text-4xl font-semibold text-white tracking-tight">
+            <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
               From register to live verifications
             </h2>
-            <p className="mt-4 text-[#8a8aa8] text-sm sm:text-base leading-relaxed">
+            <p className="mt-4 text-sm leading-relaxed text-[#8a8aa8] sm:text-base">
               The path is intentional: a single company email anchors your tenant, then we capture how you operate before
               you wire integrations — so defaults match your markets.
             </p>
@@ -68,26 +54,25 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="py-16 sm:py-20 border-t border-white/[0.06] bg-[#08080e]/80">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-8">
+      <section className="border-t border-white/[0.06] bg-[#08080e]/80 py-16 sm:py-20">
+        <div className="mx-auto flex max-w-6xl flex-col items-start gap-8 px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
             <h2 className="font-display text-2xl font-semibold text-white">Ready when your team is</h2>
-            <p className="mt-2 text-sm text-[#6b6b88] max-w-md">
-              Use the same URL for marketing and operations — landing, login, and the dashboard share one product
-              story.
+            <p className="mt-2 max-w-md text-sm text-[#6b6b88]">
+              Use the same URL for marketing and operations — landing, login, and the dashboard share one product story.
             </p>
           </div>
-          <div className="flex flex-wrap gap-3 shrink-0">
+          <div className="flex shrink-0 flex-wrap gap-3">
             <Link
               to="/register"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white text-[#0c0c12] text-sm font-semibold hover:bg-[#e8e8f0] transition-colors"
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-[#0c0c12] transition-colors hover:bg-[#e8e8f0]"
             >
               Register
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               to="/login"
-              className="inline-flex items-center px-5 py-3 rounded-xl border border-white/20 text-sm font-medium text-white hover:bg-white/5"
+              className="inline-flex items-center rounded-xl border border-white/20 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-white/5"
             >
               Log in
             </Link>

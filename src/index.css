@@ -96,3 +96,58 @@ body {
   background: linear-gradient(to bottom, rgba(99, 102, 241, 0.5), rgba(52, 211, 153, 0.25));
   animation: landingVlineDraw 0.9s ease 0.4s both;
 }
+
+/* Illuminated hero (components/ui/illuminated-hero) — no tw-animate-css required */
+@keyframes onloadopacity {
+  24% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes onloadbgt {
+  0% {
+    translate: 0 -70%;
+    opacity: 0.3;
+  }
+  100% {
+    translate: 0 -64%;
+    opacity: 0.8;
+  }
+}
+
+@keyframes onloadbgb {
+  0% {
+    translate: 0 70%;
+    opacity: 0.3;
+  }
+  100% {
+    translate: 0 64%;
+    opacity: 0.8;
+  }
+}
+
+.illuminated-hero .shadow-bgt {
+  animation: onloadbgt 1s ease-in-out forwards;
+  background: radial-gradient(
+    ellipse 85% 70% at 50% 45%,
+    rgba(129, 140, 248, 0.55) 0%,
+    rgba(99, 102, 241, 0.2) 45%,
+    transparent 72%
+  );
+  filter: blur(52px);
+}
+
+.illuminated-hero .shadow-bgb {
+  animation: onloadbgb 1s ease-in-out forwards;
+  background: radial-gradient(
+    ellipse 75% 65% at 50% 55%,
+    rgba(52, 211, 153, 0.4) 0%,
+    rgba(34, 197, 94, 0.12) 50%,
+    transparent 70%
+  );
+  filter: blur(64px);
+  mix-blend-mode: screen;
+}
