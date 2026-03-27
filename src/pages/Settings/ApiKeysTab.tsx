@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus, Copy, Check } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Plus, Copy, Check, Sparkles } from 'lucide-react';
 import { useApiKeys, useCreateApiKey, useRevokeApiKey } from '../../hooks/useSettings';
 import { formatRelativeTime } from '../../lib/formatters';
 import { cn } from '../../lib/utils';
@@ -49,6 +50,15 @@ export function ApiKeysTab() {
 
   return (
     <div className="space-y-4">
+      <Link
+        to="/settings/integration-demo"
+        className="flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50/80 px-4 py-3 text-[13px] font-medium text-violet-900 transition-colors hover:border-violet-300 hover:bg-violet-50"
+      >
+        <Sparkles className="h-4 w-4 shrink-0 text-violet-600" />
+        <span>
+          <span className="font-semibold">New:</span> run a sandbox walkthrough — see requests &amp; webhooks for your organisation (no real calls).
+        </span>
+      </Link>
       <div className="flex items-center justify-between">
         <p className="text-[13px] text-gray-500">Manage API keys for authenticating your integration with AfriTrust.</p>
         <button

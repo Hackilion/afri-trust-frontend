@@ -22,7 +22,8 @@ export type Capability =
   | 'settings.team.invite'
   | 'settings.team.remove'
   | 'settings.tier_profiles'
-  | 'settings.check_catalogue';
+  | 'settings.check_catalogue'
+  | 'settings.integration_demo';
 
 const TENANT_READ_ROLES: TeamRole[] = ['owner', 'admin', 'reviewer', 'viewer'];
 const TENANT_REVIEW_ROLES: TeamRole[] = ['owner', 'admin', 'reviewer'];
@@ -83,6 +84,7 @@ export function getCapabilities(user: WorkspaceUser | null, impersonatedOrgId: s
     'settings.team.remove': c(inTenant && roleAllows(role, TENANT_ADMIN_ROLES)),
     'settings.tier_profiles': c(inTenant && roleAllows(role, TENANT_ADMIN_ROLES)),
     'settings.check_catalogue': c(inTenant && roleAllows(role, [...TENANT_ADMIN_ROLES, 'reviewer'])),
+    'settings.integration_demo': c(inTenant && roleAllows(role, TENANT_READ_ROLES)),
   };
 }
 

@@ -49,4 +49,5 @@ export const mockActivityFeed: ActivityFeedItem[] = [
   { id: 'AF-006', applicantId: 'APL-000018', applicantName: 'Brian Otieno', eventType: 'rejected', description: 'Application rejected — expired document', country: 'KE', createdAt: new Date(Date.now() - 86400000).toISOString() },
   { id: 'AF-007', applicantId: 'APL-000017', applicantName: 'Akosua Darko', eventType: 'status_changed', description: 'Flagged for review — age discrepancy', country: 'GH', createdAt: new Date(Date.now() - 86400000 * 1.5).toISOString() },
   { id: 'AF-008', applicantId: 'APL-000014', applicantName: 'Thabo Nkosi', eventType: 'approved', description: 'Application approved', country: 'ZA', createdAt: new Date(Date.now() - 86400000 * 2).toISOString() },
+  { id: 'AF-009', applicantId: 'APL-000027', applicantName: 'Meron Tadesse', eventType: 'approved', description: 'Application approved — Addis Ababa', country: 'ET', createdAt: new Date(Date.now() - 86400000 * 2.5).toISOString() },
 ];

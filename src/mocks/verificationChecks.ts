@@ -1,4 +1,4 @@
-import type { VerificationCheck, TimelineEvent } from '../types';
+import type { Applicant, VerificationCheck, TimelineEvent } from '../types';
 
 export const mockVerificationChecks: Record<string, VerificationCheck[]> = {
   'APL-000001': [
@@ -25,15 +25,34 @@ export const mockVerificationChecks: Record<string, VerificationCheck[]> = {
   ],
 };
 
-export function getChecksForApplicant(applicantId: string): VerificationCheck[] {
-  return mockVerificationChecks[applicantId] ?? [
-    { id: `${applicantId}-default-1`, applicantId, type: 'liveness', status: 'passed', score: 91, details: 'Liveness check passed', performedAt: new Date().toISOString(), provider: 'internal' },
-    { id: `${applicantId}-default-2`, applicantId, type: 'face_match', status: 'passed', score: 94, details: 'Face matches document', performedAt: new Date().toISOString(), provider: 'internal' },
-    { id: `${applicantId}-default-3`, applicantId, type: 'document_authenticity', status: 'passed', score: 97, details: 'Document verified as authentic', performedAt: new Date().toISOString(), provider: 'internal' },
-    { id: `${applicantId}-default-4`, applicantId, type: 'watchlist', status: 'passed', score: 100, details: 'No watchlist matches', performedAt: new Date().toISOString(), provider: 'internal' },
-    { id: `${applicantId}-default-5`, applicantId, type: 'pep', status: 'passed', score: 100, details: 'No PEP matches', performedAt: new Date().toISOString(), provider: 'internal' },
-    { id: `${applicantId}-default-6`, applicantId, type: 'email_verification', status: 'passed', score: 100, details: 'Email verified', performedAt: new Date().toISOString(), provider: 'internal' },
+function defaultPassedChecks(applicantId: string): VerificationCheck[] {
+  const now = new Date().toISOString();
+  return [
+    { id: `${applicantId}-default-1`, applicantId, type: 'liveness', status: 'passed', score: 91, details: 'Liveness check passed', performedAt: now, provider: 'internal' },
+    { id: `${applicantId}-default-2`, applicantId, type: 'face_match', status: 'passed', score: 94, details: 'Face matches document', performedAt: now, provider: 'internal' },
+    { id: `${applicantId}-default-3`, applicantId, type: 'document_authenticity', status: 'passed', score: 97, details: 'Document verified as authentic', performedAt: now, provider: 'internal' },
+    { id: `${applicantId}-default-4`, applicantId, type: 'watchlist', status: 'passed', score: 100, details: 'No watchlist matches', performedAt: now, provider: 'internal' },
+    { id: `${applicantId}-default-5`, applicantId, type: 'pep', status: 'passed', score: 100, details: 'No PEP matches', performedAt: now, provider: 'internal' },
+    { id: `${applicantId}-default-6`, applicantId, type: 'email_verification', status: 'passed', score: 100, details: 'Email verified', performedAt: now, provider: 'internal' },
   ];
+}
+
+/** When documents are not fully verified, do not fabricate passed screening rows — journey stays honest. */
+function shouldDeferChecksUntilDocumentsReady(applicant: Applicant): boolean {
+  const docs = applicant.documents ?? [];
+  if (!docs.length) return applicant.status === 'incomplete';
+  const anyPending = docs.some(d => d.status === 'pending');
+  const allVerified = docs.every(d => d.status === 'verified');
+  if (anyPending) return true;
+  if (!allVerified && docs.some(d => d.status === 'rejected')) return true;
+  return false;
+}
+
+export function getChecksForApplicant(applicantId: string, applicant?: Applicant): VerificationCheck[] {
+  const explicit = mockVerificationChecks[applicantId];
+  if (explicit) return explicit;
+  if (applicant && shouldDeferChecksUntilDocumentsReady(applicant)) return [];
+  return defaultPassedChecks(applicantId);
 }
 
 export const mockTimelines: Record<string, TimelineEvent[]> = {};

@@ -1,6 +1,14 @@
 import type { Applicant } from '../types';
 
-export const mockApplicants: Applicant[] = [
+/** Map each record to a tenant — matches `mockOrganizations` slugs for realistic demos. */
+function organizationIdForApplicant(a: Omit<Applicant, 'organizationId'>): string {
+  const n = a.nationality;
+  if (n === 'GH' || n === 'CI' || n === 'SN') return 'org-gh-bank';
+  if (n === 'KE' || n === 'UG' || n === 'ET' || n === 'TZ') return 'org-nairobi-pay';
+  return 'org-lagos-lend';
+}
+
+const applicantsRaw: Array<Omit<Applicant, 'organizationId'>> = [
   {
     id: 'APL-000001',
     firstName: 'Emeka',
@@ -324,6 +332,10 @@ export const mockApplicants: Applicant[] = [
     nationality: 'NG',
     residenceCountry: 'NG',
     address: { street: '8 Marina Road', city: 'Lagos Island', state: 'Lagos', country: 'NG' },
+    applicantKind: 'sole_trader',
+    intakeChannel: 'agent_tablet',
+    gender: 'male',
+    occupation: 'Import / export',
     status: 'verified',
     riskLevel: 'low',
     riskScore: 9,
@@ -517,6 +529,95 @@ export const mockApplicants: Applicant[] = [
     tier: 'basic',
     submittedAt: '2026-03-26T17:00:00Z',
     updatedAt: '2026-03-26T17:00:00Z',
+    expectedDocumentSlots: 4,
+    intakeChannel: 'mobile_sdk',
     documents: [],
   },
+  {
+    id: 'APL-000026',
+    firstName: 'Jean',
+    lastName: 'Kouassi',
+    email: 'jean.kouassi@proton.me',
+    phone: '+2250712345678',
+    dateOfBirth: '1992-04-18',
+    nationality: 'CI',
+    residenceCountry: 'GH',
+    address: { street: 'Ring Road East', city: 'Accra', state: 'Greater Accra', country: 'GH' },
+    status: 'pending',
+    riskLevel: 'medium',
+    riskScore: 48,
+    tier: 'standard',
+    submittedAt: '2026-03-24T11:20:00Z',
+    updatedAt: '2026-03-25T09:10:00Z',
+    applicantKind: 'foreign_national',
+    intakeChannel: 'partner_api',
+    gender: 'male',
+    occupation: 'Logistics coordinator',
+    externalReference: 'PRT-CI-992',
+    tags: ['cross-border-work-permit'],
+    documents: [
+      {
+        id: 'DOC-040',
+        type: 'passport',
+        status: 'verified',
+        frontImageUrl: 'https://placehold.co/400x260/2a1f3d/ffffff?text=Passport+CI',
+        documentNumber: 'CI-P4455667',
+        issueDate: '2021-03-01',
+        expiryDate: '2031-03-01',
+      },
+      {
+        id: 'DOC-041',
+        type: 'alien_card',
+        status: 'pending',
+        frontImageUrl: 'https://placehold.co/400x260/1f2a2d/ffffff?text=Residence+permit',
+        documentNumber: 'GH-RP-778899',
+      },
+    ],
+  },
+  {
+    id: 'APL-000027',
+    firstName: 'Meron',
+    lastName: 'Tadesse',
+    email: 'meron.tadesse@gmail.com',
+    phone: '+251911234567',
+    dateOfBirth: '1994-08-12',
+    nationality: 'ET',
+    residenceCountry: 'ET',
+    address: {
+      street: 'Bole Road',
+      city: 'Addis Ababa',
+      state: 'Addis Ababa',
+      country: 'ET',
+      postalCode: '1000',
+    },
+    status: 'verified',
+    riskLevel: 'low',
+    riskScore: 22,
+    tier: 'standard',
+    submittedAt: '2026-03-22T09:00:00Z',
+    updatedAt: '2026-03-23T14:20:00Z',
+    intakeChannel: 'web_portal',
+    documents: [
+      {
+        id: 'DOC-042',
+        type: 'passport',
+        status: 'verified',
+        frontImageUrl: 'https://placehold.co/400x260/1a2e1a/ffffff?text=Ethiopian+Passport',
+        documentNumber: 'ET-P9988776',
+        issueDate: '2020-01-15',
+        expiryDate: '2030-01-14',
+      },
+      {
+        id: 'DOC-043',
+        type: 'passport',
+        status: 'verified',
+        selfieImageUrl: 'https://placehold.co/260x260/1a2e1a/ffffff?text=Selfie',
+      },
+    ],
+  },
 ];
+
+export const mockApplicants: Applicant[] = applicantsRaw.map(a => ({
+  ...a,
+  organizationId: organizationIdForApplicant(a),
+}));

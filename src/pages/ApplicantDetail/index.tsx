@@ -1,6 +1,18 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, CheckCircle, XCircle, MessageSquare, AlertTriangle, ChevronDown, ChevronRight, ShieldOff } from 'lucide-react';
+import {
+  ChevronLeft,
+  CheckCircle,
+  XCircle,
+  MessageSquare,
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  ShieldOff,
+  Globe2,
+  Fingerprint,
+  Building2,
+} from 'lucide-react';
 import { useApplicant, useApplicantChecks, useApplicantTimeline } from '../../hooks/useApplicant';
 import { useApplicantActions } from '../../hooks/useApplicantActions';
 import { useApplicantSessions } from '../../hooks/useSessions';
@@ -11,58 +23,28 @@ import { CountryFlag } from '../../components/shared/CountryFlag';
 import { SessionStatusBadge } from '../../components/shared/SessionStatusBadge';
 import { LoadingSpinner } from '../../components/shared/LoadingSpinner';
 import { ConfirmDialog } from '../../components/shared/ConfirmDialog';
+import { Modal } from '../../components/shared/Modal';
 import { DOCUMENT_LABELS, TIER_LABELS, COUNTRY_NAMES } from '../../lib/constants';
 import { formatDate, formatDateTime, formatRelativeTime } from '../../lib/formatters';
-import type { VerificationCheck, TimelineEvent, VerificationSession, ConsentGrant } from '../../types';
+import type { TimelineEvent, VerificationSession, ConsentGrant } from '../../types';
 import { cn } from '../../lib/utils';
 import { useSession } from '../../hooks/useSession';
+import {
+  APPLICANT_KIND_LABELS,
+  INTAKE_CHANNEL_LABELS,
+  deriveVerificationProgress,
+  inferApplicantKind,
+  inferIntakeChannel,
+} from '../../lib/applicantPresentation';
+import { organizationNameById } from '../../services/applicantService';
+import {
+  buildWorkflowJourney,
+  getJourneyApprovalBlockers,
+  isJourneyReadyForApproval,
+} from '../../lib/applicantWorkflowJourney';
+import { ApplicantWorkflowJourney } from '../../components/applicant/ApplicantWorkflowJourney';
 
-const CHECK_LABELS: Record<string, string> = {
-  liveness: 'Liveness Detection',
-  face_match: 'Face Match',
-  document_authenticity: 'Document Authenticity',
-  document_expiry: 'Document Expiry',
-  watchlist: 'Watchlist Screening',
-  pep: 'PEP Check',
-  adverse_media: 'Adverse Media',
-  address_verification: 'Address Verification',
-  phone_verification: 'Phone Verification',
-  email_verification: 'Email Verification',
-};
-
-function CheckRow({ check }: { check: VerificationCheck }) {
-  const statusColors = { passed: 'text-emerald-700 bg-emerald-50 border-emerald-200', failed: 'text-red-700 bg-red-50 border-red-200', pending: 'text-amber-700 bg-amber-50 border-amber-200', not_applicable: 'text-gray-500 bg-gray-50 border-gray-200' };
-  return (
-    <div className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
-      <div className={cn('flex-1')}>
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[13px] font-medium text-gray-800">{CHECK_LABELS[check.type] ?? check.type}</span>
-          <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full border', statusColors[check.status])}>
-            {check.status === 'not_applicable' ? 'N/A' : check.status.charAt(0).toUpperCase() + check.status.slice(1)}
-          </span>
-        </div>
-        <p className="text-[11px] text-gray-500 mt-0.5">{check.details}</p>
-        {check.failureReason && (
-          <div className="flex items-start gap-1 mt-1">
-            <AlertTriangle className="w-3 h-3 text-red-500 shrink-0 mt-0.5" />
-            <p className="text-[11px] text-red-600">{check.failureReason}</p>
-          </div>
-        )}
-        {check.score !== undefined && (
-          <div className="flex items-center gap-2 mt-1.5">
-            <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className={cn('h-full rounded-full transition-all', check.score >= 80 ? 'bg-emerald-500' : check.score >= 50 ? 'bg-amber-500' : 'bg-red-500')}
-                style={{ width: `${check.score}%` }}
-              />
-            </div>
-            <span className="text-[10px] font-mono text-gray-400">{check.score}%</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+const MIN_REJECTION_REASON_LEN = 12;
 
 const TIMELINE_LABELS: Record<string, string> = {
   submitted: 'Application submitted',
@@ -193,28 +175,62 @@ function ConsentRow({ grant }: { grant: ConsentGrant }) {
 
 export default function ApplicantDetail() {
   const { id } = useParams<{ id: string }>();
-  const { can } = useSession();
+  const { can, workspaceOrgId } = useSession();
   const canWriteApplicants = can('applicants.write');
   const { data: applicant, isLoading } = useApplicant(id!);
   const { data: checks } = useApplicantChecks(id!);
   const { data: timeline } = useApplicantTimeline(id!);
-  const { mutate: updateStatus, isPending } = useApplicantActions(id!);
+  const { mutate: updateStatus, isPending } = useApplicantActions(id!, workspaceOrgId);
   const { data: sessions } = useApplicantSessions(id!);
   const { data: consents } = useApplicantConsents(id!);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const [confirmAction, setConfirmAction] = useState<'approved' | 'rejected' | null>(null);
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [approveModalOpen, setApproveModalOpen] = useState(false);
+  const [rejectionReasonDraft, setRejectionReasonDraft] = useState('');
+  const journey = useMemo(() => {
+    if (!applicant) return null;
+    return buildWorkflowJourney(applicant, sessions, checks ?? undefined);
+  }, [applicant, sessions, checks]);
+
+  const approvalBlockers = useMemo(() => (journey ? getJourneyApprovalBlockers(journey) : []), [journey]);
+  const journeyAllowsApproval = Boolean(journey && isJourneyReadyForApproval(journey));
+  const terminalStatus = applicant?.status === 'verified' || applicant?.status === 'rejected';
+  const rejectionReasonOk = rejectionReasonDraft.trim().length >= MIN_REJECTION_REASON_LEN;
+
+  if (!workspaceOrgId) {
+    return (
+      <div className="mx-auto max-w-md rounded-2xl border border-amber-200 bg-amber-50/80 p-6 text-center">
+        <p className="text-sm font-semibold text-amber-900">Select a workspace</p>
+        <p className="mt-2 text-xs text-amber-800/90">
+          Applicants belong to a single organisation. Choose your tenant in the header to open this profile.
+        </p>
+        <Link to="/applicants" className="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500">
+          Back to applicants
+        </Link>
+      </div>
+    );
+  }
 
   if (isLoading) return <LoadingSpinner className="py-32" />;
-  if (!applicant) return <div className="text-center py-20 text-gray-500">Applicant not found</div>;
+  if (!applicant) {
+    return (
+      <div className="space-y-3 py-16 text-center">
+        <p className="text-gray-700 font-medium">Applicant not found in this workspace</p>
+        <p className="text-sm text-gray-500 max-w-md mx-auto">
+          This ID may belong to another organisation, or the link is outdated. Only identities submitted to{' '}
+          <span className="font-semibold text-gray-800">{organizationNameById(workspaceOrgId)}</span> appear here.
+        </p>
+        <Link to="/applicants" className="inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500">
+          View workspace applicants
+        </Link>
+      </div>
+    );
+  }
 
-  const handleAction = (action: 'approved' | 'rejected') => {
-    if (confirmAction === action) {
-      updateStatus({ status: action === 'approved' ? 'verified' : 'rejected' });
-      setConfirmAction(null);
-    } else {
-      setConfirmAction(action);
-    }
-  };
+  const persona = inferApplicantKind(applicant);
+  const channel = inferIntakeChannel(applicant);
+  const pipelinePct = deriveVerificationProgress(applicant);
+  const crossBorder = applicant.nationality !== applicant.residenceCountry;
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -242,43 +258,41 @@ export default function ApplicantDetail() {
 
           {/* Action Bar */}
           {canWriteApplicants ? (
-            <div className="flex items-center gap-2 flex-wrap">
-              {confirmAction && (
-                <span className="text-[12px] text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                  Click again to confirm {confirmAction}
-                </span>
+            <div className="flex flex-col items-end gap-2">
+              {!journeyAllowsApproval && !terminalStatus && journey && (
+                <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg px-3 py-2 max-w-sm text-right leading-snug">
+                  Approval is available only when every verification step in the journey below is finished (no failures, no open steps).
+                </p>
               )}
-              <button
-                onClick={() => updateStatus({ status: 'needs_review' })}
-                disabled={isPending}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-[13px] font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-              >
-                <MessageSquare className="w-3.5 h-3.5" /> Request Info
-              </button>
-              <button
-                onClick={() => handleAction('rejected')}
-                disabled={isPending}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-medium disabled:opacity-50 transition-colors',
-                  confirmAction === 'rejected'
-                    ? 'bg-red-600 text-white'
-                    : 'border border-red-200 text-red-600 hover:bg-red-50'
-                )}
-              >
-                <XCircle className="w-3.5 h-3.5" /> Reject
-              </button>
-              <button
-                onClick={() => handleAction('approved')}
-                disabled={isPending}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-medium disabled:opacity-50 transition-colors',
-                  confirmAction === 'approved'
-                    ? 'bg-emerald-700 text-white'
-                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                )}
-              >
-                <CheckCircle className="w-3.5 h-3.5" /> Approve
-              </button>
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                <button
+                  onClick={() => updateStatus({ status: 'needs_review' })}
+                  disabled={isPending || terminalStatus}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-[13px] font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" /> Request Info
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRejectionReasonDraft('');
+                    setRejectModalOpen(true);
+                  }}
+                  disabled={isPending || terminalStatus}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-medium disabled:opacity-50 transition-colors border border-red-200 text-red-600 hover:bg-red-50"
+                >
+                  <XCircle className="w-3.5 h-3.5" /> Reject
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setApproveModalOpen(true)}
+                  disabled={isPending || terminalStatus}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-medium disabled:opacity-50 transition-colors bg-emerald-600 text-white hover:bg-emerald-700"
+                  title={journeyAllowsApproval ? 'Confirm approval' : 'Review why approval is blocked'}
+                >
+                  <CheckCircle className="w-3.5 h-3.5" /> Approve
+                </button>
+              </div>
             </div>
           ) : (
             <p className="text-[12px] text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 max-w-sm">
@@ -287,6 +301,94 @@ export default function ApplicantDetail() {
           )}
         </div>
       </div>
+
+      <div className="grid gap-3 rounded-2xl border border-slate-200/90 bg-gradient-to-r from-slate-50 via-white to-indigo-50/30 p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-5">
+        <div className="flex items-start gap-3 rounded-xl border border-indigo-200/60 bg-indigo-50/50 p-3 shadow-sm sm:col-span-1 lg:col-span-1">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm">
+            <Building2 className="h-4 w-4" strokeWidth={2} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600/90">Organisation</p>
+            <p className="text-[13px] font-semibold text-slate-900 leading-snug">
+              {organizationNameById(applicant.organizationId)}
+            </p>
+            <p className="mt-0.5 font-mono text-[10px] text-slate-500">{applicant.organizationId}</p>
+          </div>
+        </div>
+        <div className="flex items-start gap-3 rounded-xl border border-white/80 bg-white/90 p-3 shadow-sm">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
+            <Fingerprint className="h-4 w-4" strokeWidth={2} />
+          </span>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Persona</p>
+            <p className="text-[13px] font-semibold text-slate-900">{APPLICANT_KIND_LABELS[persona]}</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">
+              {persona === 'foreign_national' && 'Extra diligence on work permits & residence proof.'}
+              {persona === 'minor_dependent' && 'Guardian consent and age rules apply.'}
+              {persona === 'sole_trader' && 'Business-name matching may be required.'}
+              {persona === 'individual' && !crossBorder && 'Standard natural-person onboarding.'}
+              {persona === 'individual' && crossBorder && 'Treat as cross-border individual.'}
+              {!['foreign_national', 'minor_dependent', 'sole_trader', 'individual'].includes(persona) &&
+                'Follow enhanced review checklist for this profile type.'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-start gap-3 rounded-xl border border-white/80 bg-white/90 p-3 shadow-sm">
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Intake channel</p>
+            <p className="text-[13px] font-semibold text-slate-900">{INTAKE_CHANNEL_LABELS[channel]}</p>
+            {applicant.externalReference ? (
+              <p className="mt-0.5 font-mono text-[11px] text-slate-500">Ref {applicant.externalReference}</p>
+            ) : (
+              <p className="mt-0.5 text-[11px] text-slate-500">No partner reference</p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-start gap-3 rounded-xl border border-white/80 bg-white/90 p-3 shadow-sm">
+          <div className="flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pipeline</p>
+            <div className="mt-1 flex items-center gap-2">
+              <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
+                  style={{ width: `${pipelinePct}%` }}
+                />
+              </div>
+              <span className="text-[12px] font-bold tabular-nums text-slate-800">{pipelinePct}%</span>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-500">
+              {applicant.documents.filter(d => d.status === 'verified').length} of {applicant.documents.length || applicant.expectedDocumentSlots || 1}{' '}
+              artifacts verified
+            </p>
+          </div>
+        </div>
+        <div
+          className={cn(
+            'flex items-start gap-3 rounded-xl border p-3 shadow-sm',
+            crossBorder ? 'border-sky-200 bg-sky-50/90' : 'border-white/80 bg-white/90'
+          )}
+        >
+          <Globe2 className={cn('mt-0.5 h-5 w-5 shrink-0', crossBorder ? 'text-sky-600' : 'text-slate-400')} />
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Jurisdiction</p>
+            {crossBorder ? (
+              <>
+                <p className="text-[13px] font-semibold text-sky-950">Cross-border profile</p>
+                <p className="text-[11px] text-sky-900/80">
+                  Citizen of {COUNTRY_NAMES[applicant.nationality]}, residing in {COUNTRY_NAMES[applicant.residenceCountry]}.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-[13px] font-semibold text-slate-900">Single jurisdiction</p>
+                <p className="text-[11px] text-slate-500">Nationality and residence both in {COUNTRY_NAMES[applicant.nationality]}.</p>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {journey && <ApplicantWorkflowJourney key={applicant.id} journey={journey} />}
 
       {/* Main content grid */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -297,14 +399,35 @@ export default function ApplicantDetail() {
             <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-4">Personal Information</h3>
             <div className="grid grid-cols-2 gap-x-6 gap-y-3">
               {[
+                {
+                  label: 'Organisation',
+                  value: (
+                    <span>
+                      {organizationNameById(applicant.organizationId)}{' '}
+                      <span className="font-mono text-[11px] text-gray-400">({applicant.organizationId})</span>
+                    </span>
+                  ),
+                },
                 { label: 'Full Name', value: `${applicant.firstName} ${applicant.lastName}` },
                 { label: 'Date of Birth', value: formatDate(applicant.dateOfBirth) },
+                ...(applicant.gender
+                  ? [{ label: 'Gender', value: applicant.gender.charAt(0).toUpperCase() + applicant.gender.slice(1) }]
+                  : []),
+                ...(applicant.occupation ? [{ label: 'Occupation', value: applicant.occupation }] : []),
                 { label: 'Email', value: applicant.email },
                 { label: 'Phone', value: applicant.phone },
                 { label: 'Nationality', value: <span className="flex items-center gap-1.5"><CountryFlag country={applicant.nationality} /> {COUNTRY_NAMES[applicant.nationality]}</span> },
                 { label: 'Residence', value: <span className="flex items-center gap-1.5"><CountryFlag country={applicant.residenceCountry} /> {COUNTRY_NAMES[applicant.residenceCountry]}</span> },
-                { label: 'Address', value: `${applicant.address.city}, ${applicant.address.state}` },
+                { label: 'Address', value: `${applicant.address.street}, ${applicant.address.city}, ${applicant.address.state}` },
                 { label: 'Submitted', value: formatDateTime(applicant.submittedAt) },
+                ...(applicant.analystRejectionReason && applicant.status === 'rejected'
+                  ? [
+                      {
+                        label: 'Analyst rejection reason',
+                        value: <span className="text-red-700 font-normal">{applicant.analystRejectionReason}</span>,
+                      },
+                    ]
+                  : []),
               ].map(({ label, value }) => (
                 <div key={label}>
                   <p className="text-[11px] text-gray-400 font-medium">{label}</p>
@@ -353,12 +476,6 @@ export default function ApplicantDetail() {
                 <p className="text-[13px] text-gray-400 col-span-3 py-4">No documents uploaded yet.</p>
               )}
             </div>
-          </div>
-
-          {/* Verification Checks */}
-          <div className="bg-white rounded-xl border border-gray-100 p-5">
-            <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Verification Checks</h3>
-            {checks?.length ? checks.map(c => <CheckRow key={c.id} check={c} />) : <p className="text-[13px] text-gray-400 py-4">No checks run yet.</p>}
           </div>
         </div>
 
@@ -430,6 +547,130 @@ export default function ApplicantDetail() {
           </div>
         </div>
       </div>
+
+      <Modal
+        open={rejectModalOpen}
+        onClose={() => {
+          setRejectModalOpen(false);
+          setRejectionReasonDraft('');
+        }}
+        title="Reject applicant"
+        description="This reason is saved on the application for audit and customer communications."
+        size="md"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setRejectModalOpen(false);
+                setRejectionReasonDraft('');
+              }}
+              disabled={isPending}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={isPending || !rejectionReasonOk}
+              onClick={() => {
+                updateStatus(
+                  { status: 'rejected', note: rejectionReasonDraft.trim() },
+                  {
+                    onSuccess: () => {
+                      setRejectModalOpen(false);
+                      setRejectionReasonDraft('');
+                    },
+                  }
+                );
+              }}
+              className="px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isPending ? 'Rejecting…' : 'Reject applicant'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-2">
+          <label htmlFor="reject-reason" className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            Rejection reason
+          </label>
+          <textarea
+            id="reject-reason"
+            value={rejectionReasonDraft}
+            onChange={e => setRejectionReasonDraft(e.target.value)}
+            rows={4}
+            placeholder="e.g. Document does not meet policy; suspected fraud; unable to verify identity…"
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-400"
+          />
+          <p className="text-[11px] text-gray-500">
+            Minimum {MIN_REJECTION_REASON_LEN} characters ({rejectionReasonDraft.trim().length}/{MIN_REJECTION_REASON_LEN})
+          </p>
+        </div>
+      </Modal>
+
+      <Modal
+        open={approveModalOpen}
+        onClose={() => setApproveModalOpen(false)}
+        title="Approve applicant"
+        description={
+          journeyAllowsApproval
+            ? 'Only confirm when you are satisfied every verification step is complete.'
+            : undefined
+        }
+        size="md"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setApproveModalOpen(false)}
+              disabled={isPending}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              {journeyAllowsApproval ? 'Cancel' : 'Close'}
+            </button>
+            {journeyAllowsApproval && (
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  updateStatus(
+                    { status: 'verified' },
+                    {
+                      onSuccess: () => setApproveModalOpen(false),
+                    }
+                  );
+                }}
+                className="px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {isPending ? 'Approving…' : 'Confirm approval'}
+              </button>
+            )}
+          </>
+        }
+      >
+        {journeyAllowsApproval ? (
+          <p className="text-sm text-gray-600 leading-relaxed">
+            Approving marks this profile as verified in your workspace. Ensure documents, automated checks, and any
+            compliance review in the journey above are all in a good state.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2.5">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600 mt-0.5" />
+              <p className="text-sm text-amber-950 leading-snug">
+                All required verification steps must be finished before you can approve. Resolve failures or wait for
+                open steps to complete.
+              </p>
+            </div>
+            <ul className="list-disc pl-5 space-y-1.5 text-sm text-gray-700">
+              {approvalBlockers.map((msg, i) => (
+                <li key={`${i}-${msg}`}>{msg}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </Modal>
 
       {/* Lightbox */}
       {lightboxUrl && (

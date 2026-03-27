@@ -2,13 +2,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { updateApplicantStatus } from '../services/applicantService';
 import { useUIStore } from '../store/uiStore';
 
-export function useApplicantActions(applicantId: string) {
+export function useApplicantActions(applicantId: string, workspaceOrgId: string | null) {
   const qc = useQueryClient();
-  const addToast = useUIStore((s) => s.addToast);
+  const addToast = useUIStore(s => s.addToast);
 
   return useMutation({
     mutationFn: ({ status, note }: { status: Parameters<typeof updateApplicantStatus>[1]; note?: string }) =>
-      updateApplicantStatus(applicantId, status, note),
+      updateApplicantStatus(applicantId, status, note, workspaceOrgId),
     onSuccess: (_, { status }) => {
       qc.invalidateQueries({ queryKey: ['applicant', applicantId] });
       qc.invalidateQueries({ queryKey: ['applicants'] });

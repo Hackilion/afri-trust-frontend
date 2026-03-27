@@ -24,6 +24,9 @@ const WebhooksTab = lazy(() => import('../pages/Settings/WebhooksTab').then(m =>
 const TeamTab = lazy(() => import('../pages/Settings/TeamTab').then(m => ({ default: m.TeamTab })));
 const TierProfilesTab = lazy(() => import('../pages/Settings/TierProfilesTab').then(m => ({ default: m.TierProfilesTab })));
 const CheckCatalogueTab = lazy(() => import('../pages/Settings/CheckCatalogueTab').then(m => ({ default: m.CheckCatalogueTab })));
+const IntegrationDemoTab = lazy(() =>
+  import('../pages/Settings/IntegrationDemoTab').then(m => ({ default: m.IntegrationDemoTab }))
+);
 
 const wrap = (Component: React.ComponentType) => (
   <Suspense fallback={<LoadingSpinner className="py-32" />}>
@@ -64,6 +67,7 @@ export const router = createBrowserRouter([
           { path: 'team', element: wrap(TeamTab) },
           { path: 'tier-profiles', element: wrap(TierProfilesTab) },
           { path: 'check-catalogue', element: wrap(CheckCatalogueTab) },
+          { path: 'integration-demo', element: wrap(IntegrationDemoTab) },
         ],
       },
     ],

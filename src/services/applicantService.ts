@@ -1,37 +1,106 @@
 import { mockApplicants } from '../mocks/applicants';
+import { mockOrganizations } from '../mocks/organizations';
 import { getChecksForApplicant, getTimelineForApplicant } from '../mocks/verificationChecks';
-import type { ApplicantFilters, ApplicantListItem, Applicant, PaginatedResponse, ApplicantStatus } from '../types';
+import {
+  deriveVerificationProgress,
+  inferApplicantKind,
+  inferIntakeChannel,
+} from '../lib/applicantPresentation';
+import type {
+  ApplicantFilters,
+  ApplicantListItem,
+  Applicant,
+  PaginatedResponse,
+  ApplicantStatus,
+} from '../types';
 
 const delay = (ms = 400) => new Promise(res => setTimeout(res, ms));
 
+export function organizationNameById(organizationId: string): string {
+  return mockOrganizations.find(o => o.id === organizationId)?.name ?? organizationId;
+}
+
 function toListItem(a: Applicant): ApplicantListItem {
+  const kind = inferApplicantKind(a);
+  const channel = inferIntakeChannel(a);
+  const progress = deriveVerificationProgress(a);
+  const documentsTotal = Math.max(a.documents.length, a.expectedDocumentSlots ?? 0, 1);
+  const documentsVerified = a.documents.filter(d => d.status === 'verified').length;
+
   return {
     id: a.id,
+    organizationId: a.organizationId,
+    organizationName: organizationNameById(a.organizationId),
     firstName: a.firstName,
     lastName: a.lastName,
     email: a.email,
     nationality: a.nationality,
+    residenceCountry: a.residenceCountry,
     status: a.status,
     riskLevel: a.riskLevel,
     riskScore: a.riskScore,
     tier: a.tier,
     submittedAt: a.submittedAt,
+    updatedAt: a.updatedAt,
     primaryDocumentType: a.documents[0]?.type ?? 'national_id',
+    applicantKind: kind,
+    intakeChannel: channel,
+    verificationProgress: progress,
+    documentsVerified,
+    documentsTotal,
+    tags: a.tags,
+    crossBorder: a.nationality !== a.residenceCountry,
   };
 }
 
-export async function getApplicants(filters: ApplicantFilters): Promise<PaginatedResponse<ApplicantListItem>> {
+function compareListItems(
+  a: ApplicantListItem,
+  b: ApplicantListItem,
+  sortBy: keyof ApplicantListItem,
+  dir: 'asc' | 'desc'
+): number {
+  const va = a[sortBy];
+  const vb = b[sortBy];
+  const mul = dir === 'asc' ? 1 : -1;
+  if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * mul;
+  if (sortBy === 'submittedAt' || sortBy === 'updatedAt') {
+    return (new Date(String(va)).getTime() - new Date(String(vb)).getTime()) * mul;
+  }
+  return String(va ?? '').localeCompare(String(vb ?? '')) * mul;
+}
+
+export async function getApplicants(
+  filters: ApplicantFilters,
+  workspaceOrgId: string | null
+): Promise<PaginatedResponse<ApplicantListItem>> {
   await delay();
 
-  let results = [...mockApplicants];
+  if (!workspaceOrgId) {
+    return {
+      data: [],
+      total: 0,
+      page: filters.page,
+      pageSize: filters.pageSize,
+      totalPages: 1,
+    };
+  }
+
+  let results = mockApplicants.filter(a => a.organizationId === workspaceOrgId);
 
   if (filters.search) {
-    const q = filters.search.toLowerCase();
-    results = results.filter(a =>
-      `${a.firstName} ${a.lastName}`.toLowerCase().includes(q) ||
-      a.id.toLowerCase().includes(q) ||
-      a.email.toLowerCase().includes(q)
-    );
+    const q = filters.search.toLowerCase().replace(/\s+/g, ' ');
+    results = results.filter(a => {
+      const name = `${a.firstName} ${a.lastName}`.toLowerCase();
+      const tagHit = a.tags?.some(t => t.toLowerCase().includes(q));
+      return (
+        name.includes(q) ||
+        a.id.toLowerCase().includes(q) ||
+        a.email.toLowerCase().includes(q) ||
+        a.phone.replace(/\s/g, '').includes(q.replace(/\s/g, '')) ||
+        (a.externalReference?.toLowerCase().includes(q) ?? false) ||
+        tagHit
+      );
+    });
   }
 
   if (filters.status?.length) {
@@ -39,7 +108,9 @@ export async function getApplicants(filters: ApplicantFilters): Promise<Paginate
   }
 
   if (filters.country?.length) {
-    results = results.filter(a => filters.country!.includes(a.nationality));
+    results = results.filter(
+      a => filters.country!.includes(a.nationality) || filters.country!.includes(a.residenceCountry)
+    );
   }
 
   if (filters.riskLevel?.length) {
@@ -50,6 +121,14 @@ export async function getApplicants(filters: ApplicantFilters): Promise<Paginate
     results = results.filter(a => filters.tier!.includes(a.tier));
   }
 
+  if (filters.applicantKind?.length) {
+    results = results.filter(a => filters.applicantKind!.includes(inferApplicantKind(a)));
+  }
+
+  if (filters.intakeChannel?.length) {
+    results = results.filter(a => filters.intakeChannel!.includes(inferIntakeChannel(a)));
+  }
+
   if (filters.dateFrom) {
     results = results.filter(a => a.submittedAt >= filters.dateFrom!);
   }
@@ -58,35 +137,91 @@ export async function getApplicants(filters: ApplicantFilters): Promise<Paginate
     results = results.filter(a => a.submittedAt <= filters.dateTo!);
   }
 
-  // Sort
-  results.sort((a, b) => {
-    const aVal = a[filters.sortBy as keyof Applicant];
-    const bVal = b[filters.sortBy as keyof Applicant];
-    const cmp = String(aVal ?? '').localeCompare(String(bVal ?? ''));
-    return filters.sortDirection === 'asc' ? cmp : -cmp;
-  });
+  const listItems = results.map(toListItem);
+  listItems.sort((a, b) => compareListItems(a, b, filters.sortBy, filters.sortDirection));
 
-  const total = results.length;
+  const total = listItems.length;
   const start = (filters.page - 1) * filters.pageSize;
-  const paged = results.slice(start, start + filters.pageSize);
+  const paged = listItems.slice(start, start + filters.pageSize);
 
   return {
-    data: paged.map(toListItem),
+    data: paged,
     total,
     page: filters.page,
     pageSize: filters.pageSize,
-    totalPages: Math.ceil(total / filters.pageSize),
+    totalPages: Math.ceil(total / filters.pageSize) || 1,
   };
 }
 
-export async function getApplicantById(id: string): Promise<Applicant | null> {
-  await delay();
-  return mockApplicants.find(a => a.id === id) ?? null;
+export type ApplicantPipelineStats = {
+  total: number;
+  byStatus: Record<ApplicantStatus, number>;
+  needsReview: number;
+  openHighRisk: number;
+  crossBorder: number;
+  avgRiskScore: number;
+  inProgressPct: number;
+};
+
+export async function getApplicantPipelineStats(workspaceOrgId: string | null): Promise<ApplicantPipelineStats> {
+  await delay(120);
+  if (!workspaceOrgId) {
+    return {
+      total: 0,
+      byStatus: { verified: 0, pending: 0, rejected: 0, needs_review: 0, incomplete: 0 },
+      needsReview: 0,
+      openHighRisk: 0,
+      crossBorder: 0,
+      avgRiskScore: 0,
+      inProgressPct: 0,
+    };
+  }
+  const list = mockApplicants.filter(a => a.organizationId === workspaceOrgId).map(toListItem);
+  const byStatus: Record<ApplicantStatus, number> = {
+    verified: 0,
+    pending: 0,
+    rejected: 0,
+    needs_review: 0,
+    incomplete: 0,
+  };
+  for (const a of list) {
+    byStatus[a.status]++;
+  }
+  const open = list.filter(a => a.status !== 'verified' && a.status !== 'rejected');
+  const openHighRisk = open.filter(a => a.riskLevel === 'high').length;
+  const crossBorder = list.filter(a => a.crossBorder).length;
+  const avgRiskScore =
+    list.length === 0 ? 0 : Math.round(list.reduce((s, a) => s + a.riskScore, 0) / list.length);
+  const inProgressPct =
+    list.length === 0
+      ? 0
+      : Math.round(
+          (list.reduce((s, a) => s + a.verificationProgress, 0) / list.length)
+        );
+  return {
+    total: list.length,
+    byStatus,
+    needsReview: byStatus.needs_review,
+    openHighRisk,
+    crossBorder,
+    avgRiskScore,
+    inProgressPct,
+  };
 }
 
-export async function getApplicantChecks(id: string) {
+export async function getApplicantById(id: string, workspaceOrgId: string | null): Promise<Applicant | null> {
+  await delay();
+  if (!workspaceOrgId) return null;
+  const a = mockApplicants.find(x => x.id === id);
+  if (!a || a.organizationId !== workspaceOrgId) return null;
+  return a;
+}
+
+export async function getApplicantChecks(id: string, workspaceOrgId: string | null) {
   await delay(200);
-  return getChecksForApplicant(id);
+  const applicant =
+    workspaceOrgId ? mockApplicants.find(a => a.id === id && a.organizationId === workspaceOrgId) : undefined;
+  return getChecksForApplicant(id, applicant);
 }
 
 export async function getApplicantTimeline(id: string) {
@@ -94,11 +229,24 @@ export async function getApplicantTimeline(id: string) {
   return getTimelineForApplicant(id);
 }
 
-export async function updateApplicantStatus(id: string, status: ApplicantStatus, _note?: string): Promise<Applicant> {
+export async function updateApplicantStatus(
+  id: string,
+  status: ApplicantStatus,
+  note: string | undefined,
+  workspaceOrgId: string | null
+): Promise<Applicant> {
   await delay();
   const applicant = mockApplicants.find(a => a.id === id);
-  if (!applicant) throw new Error(`Applicant ${id} not found`);
+  if (!applicant || !workspaceOrgId || applicant.organizationId !== workspaceOrgId) {
+    throw new Error(`Applicant ${id} not found in this workspace`);
+  }
   applicant.status = status;
   applicant.updatedAt = new Date().toISOString();
+  if (status === 'rejected' && note?.trim()) {
+    applicant.analystRejectionReason = note.trim();
+  }
+  if (status === 'verified') {
+    delete applicant.analystRejectionReason;
+  }
   return { ...applicant };
 }

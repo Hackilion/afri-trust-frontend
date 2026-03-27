@@ -11,6 +11,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/applicants': 'Applicants',
   '/settings': 'Settings',
   '/settings/api-keys': 'Settings',
+  '/settings/integration-demo': 'Settings · Integration demo',
   '/settings/webhooks': 'Settings',
   '/settings/team': 'Settings',
   '/settings/tier-profiles': 'Settings',

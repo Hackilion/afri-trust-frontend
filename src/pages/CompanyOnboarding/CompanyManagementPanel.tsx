@@ -4,13 +4,17 @@ import {
   Activity,
   Building2,
   ChevronRight,
+  ClipboardCopy,
+  FileText,
   Globe2,
   KeyRound,
   Layers,
   Mail,
+  ScrollText,
   Shield,
   Users,
   Webhook,
+  Sparkles,
 } from 'lucide-react';
 import {
   CHANNELS,
@@ -22,11 +26,16 @@ import {
 import { onboardingCompletionPercent, isOnboardingStepValid } from '../../lib/companyOnboardingValidation';
 import type { CompanyOnboardingDraft } from '../../types/companyOnboarding';
 import { cn } from '../../lib/utils';
+import { useSession } from '../../hooks/useSession';
+import { useUIStore } from '../../store/uiStore';
+import { CompanyManagementTeamSection } from './CompanyManagementTeamSection';
 
 type Props = {
   draft: CompanyOnboardingDraft;
   currentStep: number;
   onGoToStep: (index: number) => void;
+  /** KYB identity steps (1–3) are view-only in the wizard */
+  identityLocked?: boolean;
 };
 
 function MiniCard({
@@ -37,6 +46,7 @@ function MiniCard({
   stepIndex,
   onGoToStep,
   done,
+  viewOnly,
 }: {
   icon: LucideIcon;
   title: string;
@@ -45,6 +55,7 @@ function MiniCard({
   stepIndex: number;
   onGoToStep: (i: number) => void;
   done: boolean;
+  viewOnly?: boolean;
 }) {
   return (
     <button
@@ -53,7 +64,8 @@ function MiniCard({
       className={cn(
         'group relative flex w-full flex-col rounded-2xl border p-4 text-left transition-all',
         'border-slate-200/90 bg-white shadow-sm hover:border-indigo-300/80 hover:shadow-md hover:shadow-indigo-500/5',
-        done && 'ring-1 ring-emerald-500/15 bg-gradient-to-br from-white to-emerald-50/30'
+        done && 'ring-1 ring-emerald-500/15 bg-gradient-to-br from-white to-emerald-50/30',
+        viewOnly && 'border-slate-200/80 bg-slate-50/40 hover:border-slate-300'
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -63,24 +75,53 @@ function MiniCard({
         <span
           className={cn(
             'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
-            done ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-50 text-amber-800'
+            viewOnly ? 'bg-slate-200/80 text-slate-700' : done ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-50 text-amber-800'
           )}
         >
-          {done ? 'Done' : 'Action'}
+          {viewOnly ? 'Locked' : done ? 'Done' : 'Action'}
         </span>
       </div>
       <p className="mt-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{title}</p>
       <p className="mt-1 line-clamp-2 text-sm font-semibold text-slate-900">{value}</p>
       {sub ? <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{sub}</p> : null}
       <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 group-hover:gap-1.5 transition-all">
-        Manage
+        {viewOnly ? 'View' : 'Manage'}
         <ChevronRight className="h-3.5 w-3.5" />
       </span>
     </button>
   );
 }
 
-export function CompanyManagementPanel({ draft, currentStep, onGoToStep }: Props) {
+function buildKybExport(draft: CompanyOnboardingDraft) {
+  return JSON.stringify(
+    {
+      legalName: draft.legalName.trim(),
+      tradingName: draft.tradingName.trim(),
+      registrationNumber: draft.registrationNumber.trim(),
+      regulatoryRef: draft.regulatoryRef.trim(),
+      primaryCountry: draft.primaryCountryCode,
+      additionalMarkets: draft.additionalCountryCodes,
+      archetypeId: draft.archetypeId,
+      employeeBandId: draft.employeeBandId,
+      volumeBandId: draft.volumeBandId,
+      channelIds: draft.channelIds,
+      useCaseNotes: draft.useCaseNotes.trim(),
+      primaryContact: {
+        firstName: draft.leadFirstName.trim(),
+        lastName: draft.leadLastName.trim(),
+        email: draft.leadEmail.trim(),
+        phoneLocal: draft.leadPhoneLocal.trim(),
+      },
+      termsAccepted: draft.acceptedTerms,
+    },
+    null,
+    2
+  );
+}
+
+export function CompanyManagementPanel({ draft, currentStep, onGoToStep, identityLocked }: Props) {
+  const addToast = useUIStore(s => s.addToast);
+  const { can } = useSession();
   const pct = onboardingCompletionPercent(draft);
   const displayName =
     draft.tradingName.trim() || draft.legalName.trim() || draft.leadEmail.split('@')[0] || 'Your workspace';
@@ -117,7 +158,9 @@ export function CompanyManagementPanel({ draft, currentStep, onGoToStep }: Props
                 {displayName}
               </h2>
               <p className="mt-1 max-w-xl text-sm text-slate-600">
-                Monitor profile completeness, jump to any section, and keep KYB data aligned before you go live.
+                {identityLocked
+                  ? 'Organisation, markets, and legal details are locked after submission. Use the wizard to update operations, contact, and resubmit.'
+                  : 'Monitor profile completeness, jump to any section, and keep KYB data aligned before you go live.'}
               </p>
             </div>
           </div>
@@ -176,6 +219,7 @@ export function CompanyManagementPanel({ draft, currentStep, onGoToStep }: Props
           stepIndex={1}
           onGoToStep={onGoToStep}
           done={isOnboardingStepValid(1, draft)}
+          viewOnly={identityLocked}
         />
         <MiniCard
           icon={Globe2}
@@ -189,6 +233,7 @@ export function CompanyManagementPanel({ draft, currentStep, onGoToStep }: Props
           stepIndex={2}
           onGoToStep={onGoToStep}
           done={isOnboardingStepValid(2, draft)}
+          viewOnly={identityLocked}
         />
         <MiniCard
           icon={Shield}
@@ -198,6 +243,7 @@ export function CompanyManagementPanel({ draft, currentStep, onGoToStep }: Props
           stepIndex={3}
           onGoToStep={onGoToStep}
           done={isOnboardingStepValid(3, draft)}
+          viewOnly={identityLocked}
         />
         <MiniCard
           icon={Activity}
@@ -228,19 +274,80 @@ export function CompanyManagementPanel({ draft, currentStep, onGoToStep }: Props
         />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/50 px-4 py-3 sm:px-5">
-        <p className="text-xs font-medium text-slate-500">Workspace integrations</p>
+      <div className="border-t border-slate-100 bg-slate-50/30 px-4 py-4 sm:px-5 space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Workspace tools</p>
+            <p className="mt-0.5 text-xs text-slate-600">Export KYB draft, open compliance trail, manage API access.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                void navigator.clipboard.writeText(buildKybExport(draft)).then(() => {
+                  addToast('KYB summary copied as JSON', 'success');
+                });
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:border-indigo-200 hover:text-indigo-800"
+            >
+              <ClipboardCopy className="h-3.5 w-3.5 text-indigo-500" />
+              Copy KYB JSON
+            </button>
+            {can('settings.team') && (
+              <Link
+                to="/settings/team"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:border-indigo-200 hover:text-indigo-800"
+              >
+                <Users className="h-3.5 w-3.5 text-indigo-500" />
+                Team & roles
+              </Link>
+            )}
+            {can('audit.read') && (
+              <Link
+                to="/audit-logs"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:border-indigo-200 hover:text-indigo-800"
+              >
+                <ScrollText className="h-3.5 w-3.5 text-indigo-500" />
+                Audit log
+              </Link>
+            )}
+            {can('settings.tier_profiles') && (
+              <Link
+                to="/settings/tier-profiles"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:border-indigo-200 hover:text-indigo-800"
+              >
+                <FileText className="h-3.5 w-3.5 text-indigo-500" />
+                Tier profiles
+              </Link>
+            )}
+          </div>
+        </div>
+
+        <CompanyManagementTeamSection draft={draft} onEditPrimaryContact={() => onGoToStep(5)} />
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-white px-4 py-3 sm:px-5">
+        <p className="text-xs font-medium text-slate-500">Integrations</p>
         <div className="flex flex-wrap gap-2">
+          {can('settings.integration_demo') && (
+            <Link
+              to="/settings/integration-demo"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50/90 px-3 py-1.5 text-xs font-semibold text-violet-800 transition-colors hover:border-violet-300 hover:bg-violet-50"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-violet-600" />
+              Live integration demo
+            </Link>
+          )}
           <Link
             to="/settings/api-keys"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:border-indigo-200 hover:text-indigo-700"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-indigo-200 hover:bg-white hover:text-indigo-700"
           >
             <KeyRound className="h-3.5 w-3.5 text-indigo-500" />
             API keys
           </Link>
           <Link
             to="/settings/webhooks"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:border-indigo-200 hover:text-indigo-700"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-indigo-200 hover:bg-white hover:text-indigo-700"
           >
             <Webhook className="h-3.5 w-3.5 text-indigo-500" />
             Webhooks

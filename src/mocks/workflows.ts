@@ -258,7 +258,11 @@ export let mockSessions: VerificationSession[] = [
     currentStepOrder: 2,
     steps: [
       {
-        order: 1, tierProfileId: 'TP-001', tierProfileName: 'KYC Lite', status: 'passed',
+        order: 1,
+        stepType: 'data_form',
+        tierProfileId: 'TP-001',
+        tierProfileName: 'KYC Lite',
+        status: 'passed',
         checks: [
           { checkId: 'email_verification', status: 'passed', score: 100, completedAt: '2026-03-01T08:01:00Z' },
           { checkId: 'phone_verification', status: 'passed', score: 100, completedAt: '2026-03-01T08:02:00Z' },
@@ -267,7 +271,11 @@ export let mockSessions: VerificationSession[] = [
         startedAt: '2026-03-01T08:00:00Z', completedAt: '2026-03-01T08:08:00Z',
       },
       {
-        order: 2, tierProfileId: 'TP-002', tierProfileName: 'Standard KYC', status: 'passed',
+        order: 2,
+        stepType: 'liveness_check',
+        tierProfileId: 'TP-002',
+        tierProfileName: 'Standard KYC',
+        status: 'passed',
         checks: [
           { checkId: 'liveness', status: 'passed', score: 98, completedAt: '2026-03-01T08:15:00Z' },
           { checkId: 'face_match', status: 'passed', score: 96, completedAt: '2026-03-01T08:16:00Z' },
@@ -292,7 +300,11 @@ export let mockSessions: VerificationSession[] = [
     currentStepOrder: 2,
     steps: [
       {
-        order: 1, tierProfileId: 'TP-001', tierProfileName: 'KYC Lite', status: 'passed',
+        order: 1,
+        stepType: 'data_form',
+        tierProfileId: 'TP-001',
+        tierProfileName: 'KYC Lite',
+        status: 'passed',
         checks: [
           { checkId: 'email_verification', status: 'passed', score: 100, completedAt: '2026-03-18T10:31:00Z' },
           { checkId: 'phone_verification', status: 'passed', score: 100, completedAt: '2026-03-18T10:32:00Z' },
@@ -301,7 +313,11 @@ export let mockSessions: VerificationSession[] = [
         startedAt: '2026-03-18T10:30:00Z', completedAt: '2026-03-18T10:38:00Z',
       },
       {
-        order: 2, tierProfileId: 'TP-002', tierProfileName: 'Standard KYC', status: 'awaiting_review',
+        order: 2,
+        stepType: 'liveness_check',
+        tierProfileId: 'TP-002',
+        tierProfileName: 'Standard KYC',
+        status: 'awaiting_review',
         checks: [
           { checkId: 'liveness', status: 'passed', score: 92, completedAt: '2026-03-18T10:45:00Z' },
           { checkId: 'face_match', status: 'pending' },
@@ -311,7 +327,11 @@ export let mockSessions: VerificationSession[] = [
         startedAt: '2026-03-18T10:40:00Z',
       },
       {
-        order: 3, tierProfileId: 'TP-003', tierProfileName: 'Enhanced Due Diligence', status: 'not_started',
+        order: 3,
+        stepType: 'aml_screen',
+        tierProfileId: 'TP-003',
+        tierProfileName: 'Enhanced Due Diligence',
+        status: 'not_started',
         checks: [],
       },
     ],
@@ -328,7 +348,11 @@ export let mockSessions: VerificationSession[] = [
     currentStepOrder: 1,
     steps: [
       {
-        order: 1, tierProfileId: 'TP-001', tierProfileName: 'KYC Lite', status: 'failed',
+        order: 1,
+        stepType: 'data_form',
+        tierProfileId: 'TP-001',
+        tierProfileName: 'KYC Lite',
+        status: 'failed',
         checks: [
           { checkId: 'email_verification', status: 'passed', score: 100, completedAt: '2026-03-15T11:01:00Z' },
           { checkId: 'document_authenticity', status: 'failed', score: 30, failureReason: 'Document appears digitally altered — MRZ zone inconsistencies detected', completedAt: '2026-03-15T11:08:00Z' },
@@ -337,7 +361,11 @@ export let mockSessions: VerificationSession[] = [
         startedAt: '2026-03-15T11:00:00Z', completedAt: '2026-03-15T11:10:00Z',
       },
       {
-        order: 2, tierProfileId: 'TP-002', tierProfileName: 'Standard KYC', status: 'not_started',
+        order: 2,
+        stepType: 'liveness_check',
+        tierProfileId: 'TP-002',
+        tierProfileName: 'Standard KYC',
+        status: 'not_started',
         checks: [],
       },
     ],
@@ -356,7 +384,11 @@ export let mockSessions: VerificationSession[] = [
     currentStepOrder: 1,
     steps: [
       {
-        order: 1, tierProfileId: 'TP-001', tierProfileName: 'KYC Lite', status: 'in_progress',
+        order: 1,
+        stepType: 'data_form',
+        tierProfileId: 'TP-001',
+        tierProfileName: 'KYC Lite',
+        status: 'in_progress',
         checks: [
           { checkId: 'email_verification', status: 'passed', score: 100, completedAt: '2026-03-20T14:01:00Z' },
           { checkId: 'phone_verification', status: 'passed', score: 100, completedAt: '2026-03-20T14:02:00Z' },
@@ -365,7 +397,11 @@ export let mockSessions: VerificationSession[] = [
         startedAt: '2026-03-20T14:00:00Z',
       },
       {
-        order: 2, tierProfileId: 'TP-002', tierProfileName: 'Standard KYC', status: 'not_started',
+        order: 2,
+        stepType: 'liveness_check',
+        tierProfileId: 'TP-002',
+        tierProfileName: 'Standard KYC',
+        status: 'not_started',
         checks: [],
       },
     ],

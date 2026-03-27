@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { ArrowRight, Check, ChevronLeft } from 'lucide-react';
+import { ArrowRight, Check, ChevronLeft, Lock } from 'lucide-react';
 import {
   AFRICAN_COUNTRIES,
   CHANNELS,
@@ -30,6 +30,9 @@ export type CompanyOnboardingProps = {
 const OB_FIELD =
   'w-full rounded-xl border border-white/[0.1] bg-[#0e0e14] px-3 py-2.5 text-[15px] leading-snug text-[#f4f4f8] placeholder:text-[#5c5c70] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] focus:outline-none focus:ring-2 focus:ring-violet-500/45 focus:border-violet-500/50';
 
+const OB_READONLY =
+  'w-full rounded-xl border border-white/[0.06] bg-[#0a0a10] px-3 py-2.5 text-[15px] leading-snug text-[#b8b8d0] cursor-default select-text shadow-none';
+
 const H1 = 'font-display text-2xl sm:text-3xl font-semibold text-white tracking-tight';
 const SUB = 'mt-2 text-sm text-[#9a9ab8]';
 const LABEL = 'text-xs font-semibold text-[#8b8ba8] uppercase tracking-wider';
@@ -44,6 +47,19 @@ const STEP_META = [
   { title: 'Review', subtitle: 'Confirm and submit' },
 ] as const;
 
+function IdentityLockedCallout() {
+  return (
+    <div className="mb-6 flex gap-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.07] px-4 py-3 text-xs leading-relaxed text-amber-100/95">
+      <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-400/90" aria-hidden />
+      <p>
+        <span className="font-semibold text-amber-200">On file with AfriTrust.</span> Organisation, markets, and legal
+        registry fields are read-only after your first submission. Update operations, primary contact, and review to save
+        changes.
+      </p>
+    </div>
+  );
+}
+
 export default function CompanyOnboarding({
   registrationFlow,
   onRegistrationProfileComplete,
@@ -56,6 +72,9 @@ export default function CompanyOnboarding({
   const reset = useCompanyOnboardingStore(s => s.reset);
   const submitted = useCompanyOnboardingStore(s => s.submitted);
   const markSubmitted = useCompanyOnboardingStore(s => s.markSubmitted);
+  const identityLocked = useCompanyOnboardingStore(s => s.identityLocked ?? false);
+  const resumeEditingAfterSubmit = useCompanyOnboardingStore(s => s.resumeEditingAfterSubmit);
+  const lockIdentityUi = !registrationFlow && identityLocked;
 
   const [countryQuery, setCountryQuery] = useState('');
   const [addMarketQuery, setAddMarketQuery] = useState('');
@@ -149,7 +168,21 @@ export default function CompanyOnboarding({
             engineer will contact <span className="text-violet-300">{draft.leadEmail}</span> with next steps for your
             markets.
           </p>
-          <div className="mt-10 flex flex-col sm:flex-row gap-3 justify-center">
+          <div className="mt-10 flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
+            {!registrationFlow && (
+              <button
+                type="button"
+                onClick={() => {
+                  resumeEditingAfterSubmit();
+                  setStepIndex(4);
+                  setCountryQuery('');
+                  setAddMarketQuery('');
+                }}
+                className="px-5 py-2.5 rounded-xl border border-violet-500/35 bg-violet-500/10 text-sm font-semibold text-violet-200 hover:bg-violet-500/15 hover:border-violet-400/45 transition-colors"
+              >
+                Update operations &amp; contact
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -176,7 +209,12 @@ export default function CompanyOnboarding({
   return (
     <>
       {!registrationFlow && (
-        <CompanyManagementPanel draft={draft} currentStep={step} onGoToStep={setStepIndex} />
+        <CompanyManagementPanel
+          draft={draft}
+          currentStep={step}
+          onGoToStep={setStepIndex}
+          identityLocked={identityLocked}
+        />
       )}
       <div
         className={cn(
@@ -197,8 +235,9 @@ export default function CompanyOnboarding({
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-400/90 mb-1">AfriTrust</p>
           <h2 className="font-display text-xl font-semibold text-white leading-tight">Company onboarding</h2>
           <p className="text-xs text-[#8b8ba8] mt-2 leading-relaxed">
-            One adaptive flow for banks, fintechs, telcos, and growing teams — tuned to African registries and compliance
-            norms.
+            {lockIdentityUi
+              ? 'KYB identity is fixed; keep operational details and your primary contact current.'
+              : 'One adaptive flow for banks, fintechs, telcos, and growing teams — tuned to African registries and compliance norms.'}
           </p>
           <ol className="mt-8 space-y-0">
             {STEP_META.map((s, i) => {
@@ -228,8 +267,15 @@ export default function CompanyOnboarding({
                     {done ? <Check className="w-4 h-4" strokeWidth={2.5} /> : i + 1}
                   </span>
                   <div className="min-w-0 pt-0.5">
-                    <p className={cn('text-sm font-semibold', active ? 'text-white' : 'text-[#8b8ba8]')}>{s.title}</p>
-                    <p className="text-[11px] text-[#5c5c70] mt-0.5">{s.subtitle}</p>
+                    <p className={cn('flex items-center gap-1.5 text-sm font-semibold', active ? 'text-white' : 'text-[#8b8ba8]')}>
+                      {s.title}
+                      {lockIdentityUi && i >= 1 && i <= 3 && (
+                        <Lock className="h-3 w-3 shrink-0 text-amber-400/80" aria-label="Read-only" />
+                      )}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-[#5c5c70]">
+                      {lockIdentityUi && i >= 1 && i <= 3 ? 'View only' : s.subtitle}
+                    </p>
                   </div>
                 </li>
               );
@@ -240,30 +286,59 @@ export default function CompanyOnboarding({
         <div className="flex flex-col p-6 sm:p-10 lg:p-12 bg-[#0c0c12]/40 backdrop-blur-sm">
           <div className="flex-1 max-w-2xl">
             {step === 0 && <StepWelcome />}
-            {step === 1 && <StepProfile draft={draft} setDraft={setDraft} />}
-            {step === 2 && (
-              <StepMarkets
-                draft={draft}
-                setDraft={setDraft}
-                countryQuery={countryQuery}
-                setCountryQuery={setCountryQuery}
-                filteredCountries={filteredCountries}
-                addMarketQuery={addMarketQuery}
-                setAddMarketQuery={setAddMarketQuery}
-                filteredAddMarkets={filteredAddMarkets}
-                toggleAdditionalCountry={toggleAdditionalCountry}
-              />
+            {step === 1 && (
+              <>
+                {lockIdentityUi && <IdentityLockedCallout />}
+                <StepProfile draft={draft} setDraft={setDraft} readOnly={lockIdentityUi} />
+              </>
             )}
-            {step === 3 && <StepLegal draft={draft} setDraft={setDraft} primary={primary} />}
+            {step === 2 && (
+              <>
+                {lockIdentityUi && <IdentityLockedCallout />}
+                <StepMarkets
+                  draft={draft}
+                  setDraft={setDraft}
+                  countryQuery={countryQuery}
+                  setCountryQuery={setCountryQuery}
+                  filteredCountries={filteredCountries}
+                  addMarketQuery={addMarketQuery}
+                  setAddMarketQuery={setAddMarketQuery}
+                  filteredAddMarkets={filteredAddMarkets}
+                  toggleAdditionalCountry={toggleAdditionalCountry}
+                  readOnly={lockIdentityUi}
+                />
+              </>
+            )}
+            {step === 3 && (
+              <>
+                {lockIdentityUi && <IdentityLockedCallout />}
+                <StepLegal
+                  draft={draft}
+                  setDraft={setDraft}
+                  primary={primary}
+                  readOnly={lockIdentityUi}
+                  showPreSubmitLockHint={!registrationFlow && !identityLocked}
+                />
+              </>
+            )}
             {step === 4 && <StepOperations draft={draft} setDraft={setDraft} toggleChannel={toggleChannel} />}
             {step === 5 && <StepTeam draft={draft} setDraft={setDraft} primary={primary} />}
             {step === 6 && (
-              <StepReview
-                draft={draft}
-                archetypeLabel={archetypeLabel}
-                primary={primary}
-                setDraft={setDraft}
-              />
+              <>
+                {lockIdentityUi && (
+                  <p className="mb-4 text-xs text-[#8b8ba8]">
+                    Identity fields below are summarised from your locked KYB record. Confirm terms to save operational or
+                    contact updates.
+                  </p>
+                )}
+                <StepReview
+                  draft={draft}
+                  archetypeLabel={archetypeLabel}
+                  primary={primary}
+                  setDraft={setDraft}
+                  identitySectionReadOnly={lockIdentityUi}
+                />
+              </>
             )}
           </div>
 
@@ -283,7 +358,13 @@ export default function CompanyOnboarding({
               disabled={submitMut.isPending}
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-semibold hover:from-violet-500 hover:to-indigo-500 transition-all disabled:opacity-50 shadow-lg shadow-violet-950/40"
             >
-              {step === STEP_COUNT - 1 ? (submitMut.isPending ? 'Submitting…' : 'Submit application') : 'Continue'}
+              {step === STEP_COUNT - 1
+                ? submitMut.isPending
+                  ? 'Submitting…'
+                  : lockIdentityUi
+                    ? 'Save updates'
+                    : 'Submit application'
+                : 'Continue'}
               {step < STEP_COUNT - 1 && <ArrowRight className="w-4 h-4" />}
             </button>
           </div>
@@ -325,54 +406,80 @@ function StepWelcome() {
 function StepProfile({
   draft,
   setDraft,
+  readOnly,
 }: {
   draft: CompanyOnboardingDraft;
   setDraft: (p: Partial<CompanyOnboardingDraft>) => void;
+  readOnly?: boolean;
 }) {
+  const arch = COMPANY_ARCHETYPES.find(a => a.id === draft.archetypeId);
+  const band = EMPLOYEE_BANDS.find(b => b.id === draft.employeeBandId);
   return (
     <div className="animate-fade-in space-y-8">
       <header>
         <h1 className={H1}>Organisation profile</h1>
-        <p className={SUB}>Choose the model closest to yours — we tune defaults and guidance.</p>
+        <p className={SUB}>
+          {readOnly
+            ? 'These choices are on file for your workspace and cannot be changed here.'
+            : 'Choose the model closest to yours — we tune defaults and guidance.'}
+        </p>
       </header>
-      <div className="grid sm:grid-cols-2 gap-2.5">
-        {COMPANY_ARCHETYPES.map(a => (
-          <button
-            key={a.id}
-            type="button"
-            onClick={() => setDraft({ archetypeId: a.id })}
-            className={cn(
-              'text-left rounded-xl border p-4 transition-all',
-              draft.archetypeId === a.id
-                ? 'border-violet-500/70 bg-violet-500/10 ring-1 ring-violet-400/25 shadow-lg shadow-violet-950/20'
-                : 'border-white/[0.1] bg-[#0e0e14] hover:border-white/[0.18]'
-            )}
-          >
-            <p className="text-sm font-semibold text-white">{a.label}</p>
-            <p className="text-[11px] text-[#8b8ba8] mt-1 leading-relaxed">{a.description}</p>
-          </button>
-        ))}
-      </div>
-      <div>
-        <p className={cn(LABEL, 'mb-2')}>Team size</p>
-        <div className="flex flex-wrap gap-2">
-          {EMPLOYEE_BANDS.map(b => (
-            <button
-              key={b.id}
-              type="button"
-              onClick={() => setDraft({ employeeBandId: b.id })}
-              className={cn(
-                'px-3.5 py-2 rounded-lg text-xs font-medium border transition-colors',
-                draft.employeeBandId === b.id
-                  ? 'bg-violet-600 text-white border-violet-500'
-                  : 'bg-[#0e0e14] border-white/[0.1] text-[#c8c8e0] hover:border-violet-500/40'
-              )}
-            >
-              {b.label}
-            </button>
-          ))}
+      {readOnly ? (
+        <div className="space-y-4">
+          <div>
+            <p className={LABEL}>Archetype</p>
+            <div className={cn('mt-2 rounded-xl border border-white/[0.08] p-4', OB_READONLY)}>
+              <p className="font-semibold text-[#e8e8f0]">{arch?.label ?? '—'}</p>
+              {arch?.description ? <p className="mt-1 text-[11px] leading-relaxed text-[#8b8ba8]">{arch.description}</p> : null}
+            </div>
+          </div>
+          <div>
+            <p className={LABEL}>Team size</p>
+            <div className={cn('mt-2', OB_READONLY)}>{band?.label ?? '—'}</div>
+          </div>
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            {COMPANY_ARCHETYPES.map(a => (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => setDraft({ archetypeId: a.id })}
+                className={cn(
+                  'rounded-xl border p-4 text-left transition-all',
+                  draft.archetypeId === a.id
+                    ? 'border-violet-500/70 bg-violet-500/10 ring-1 ring-violet-400/25 shadow-lg shadow-violet-950/20'
+                    : 'border-white/[0.1] bg-[#0e0e14] hover:border-white/[0.18]'
+                )}
+              >
+                <p className="text-sm font-semibold text-white">{a.label}</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-[#8b8ba8]">{a.description}</p>
+              </button>
+            ))}
+          </div>
+          <div>
+            <p className={cn(LABEL, 'mb-2')}>Team size</p>
+            <div className="flex flex-wrap gap-2">
+              {EMPLOYEE_BANDS.map(b => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => setDraft({ employeeBandId: b.id })}
+                  className={cn(
+                    'rounded-lg border px-3.5 py-2 text-xs font-medium transition-colors',
+                    draft.employeeBandId === b.id
+                      ? 'border-violet-500 bg-violet-600 text-white'
+                      : 'border-white/[0.1] bg-[#0e0e14] text-[#c8c8e0] hover:border-violet-500/40'
+                  )}
+                >
+                  {b.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -387,6 +494,7 @@ function StepMarkets({
   setAddMarketQuery,
   filteredAddMarkets,
   toggleAdditionalCountry,
+  readOnly,
 }: {
   draft: CompanyOnboardingDraft;
   setDraft: (p: Partial<CompanyOnboardingDraft>) => void;
@@ -397,95 +505,136 @@ function StepMarkets({
   setAddMarketQuery: (s: string) => void;
   filteredAddMarkets: AfricanCountry[];
   toggleAdditionalCountry: (code: string) => void;
+  readOnly?: boolean;
 }) {
+  const hq = getCountryByCode(draft.primaryCountryCode);
   return (
     <div className="animate-fade-in space-y-8">
       <header>
         <h1 className={H1}>Markets & footprint</h1>
-        <p className={SUB}>Set your legal headquarters, then add every African market where you onboard customers or partners.</p>
+        <p className={SUB}>
+          {readOnly
+            ? 'Headquarters and footprint on file. To change jurisdiction, contact AfriTrust support.'
+            : 'Set your legal headquarters, then add every African market where you onboard customers or partners.'}
+        </p>
       </header>
 
       <div>
         <label className={LABEL}>Primary country (HQ)</label>
-        <input
-          type="search"
-          value={countryQuery}
-          onChange={e => setCountryQuery(e.target.value)}
-          placeholder="Search country…"
-          className={cn('mt-2', OB_FIELD)}
-        />
-        <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-white/[0.1] bg-[#0e0e14] divide-y divide-white/[0.06]">
-          {filteredCountries.slice(0, 80).map(c => (
-            <button
-              key={c.code}
-              type="button"
-              onClick={() => {
-                setDraft({
-                  primaryCountryCode: c.code,
-                  additionalCountryCodes: draft.additionalCountryCodes.filter(x => x !== c.code),
-                });
-                setCountryQuery('');
-              }}
-              className={cn(
-                'w-full text-left px-3 py-2 text-sm flex justify-between gap-2 hover:bg-white/[0.04]',
-                draft.primaryCountryCode === c.code ? 'bg-emerald-500/15 font-medium text-emerald-200' : 'text-[#e8e8f0]'
-              )}
-            >
-              <span>{c.name}</span>
-              <span className="text-xs text-[#6b6b88]">{c.subregion}</span>
-            </button>
-          ))}
-        </div>
-        {draft.primaryCountryCode && (
-          <p className="mt-2 text-xs text-emerald-400/90">
-            Selected: <strong className="text-emerald-300">{getCountryByCode(draft.primaryCountryCode)?.name}</strong> · dial{' '}
-            {getCountryByCode(draft.primaryCountryCode)?.dialCode}
-          </p>
+        {readOnly ? (
+          <div className={cn('mt-2', OB_READONLY)}>
+            {hq ? (
+              <span>
+                {hq.name} <span className="text-[#6b6b88]">({hq.code})</span> · dial {hq.dialCode}
+              </span>
+            ) : (
+              '—'
+            )}
+          </div>
+        ) : (
+          <>
+            <input
+              type="search"
+              value={countryQuery}
+              onChange={e => setCountryQuery(e.target.value)}
+              placeholder="Search country…"
+              className={cn('mt-2', OB_FIELD)}
+            />
+            <div className="mt-2 max-h-48 divide-y divide-white/[0.06] overflow-y-auto rounded-xl border border-white/[0.1] bg-[#0e0e14]">
+              {filteredCountries.slice(0, 80).map(c => (
+                <button
+                  key={c.code}
+                  type="button"
+                  onClick={() => {
+                    setDraft({
+                      primaryCountryCode: c.code,
+                      additionalCountryCodes: draft.additionalCountryCodes.filter(x => x !== c.code),
+                    });
+                    setCountryQuery('');
+                  }}
+                  className={cn(
+                    'flex w-full justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-white/[0.04]',
+                    draft.primaryCountryCode === c.code ? 'bg-emerald-500/15 font-medium text-emerald-200' : 'text-[#e8e8f0]'
+                  )}
+                >
+                  <span>{c.name}</span>
+                  <span className="text-xs text-[#6b6b88]">{c.subregion}</span>
+                </button>
+              ))}
+            </div>
+            {draft.primaryCountryCode && (
+              <p className="mt-2 text-xs text-emerald-400/90">
+                Selected: <strong className="text-emerald-300">{hq?.name}</strong> · dial {hq?.dialCode}
+              </p>
+            )}
+          </>
         )}
       </div>
 
       <div>
         <label className={LABEL}>Additional markets</label>
-        <p className="text-[11px] text-[#6b6b88] mt-1 mb-2">Optional — select all that apply.</p>
-        <input
-          type="search"
-          value={addMarketQuery}
-          onChange={e => setAddMarketQuery(e.target.value)}
-          placeholder="Search to add…"
-          className={OB_FIELD}
-        />
-        <div className="mt-2 flex flex-wrap gap-1.5 min-h-[2rem]">
-          {draft.additionalCountryCodes.map(code => {
-            const c = getCountryByCode(code);
-            return (
-              <button
-                key={code}
-                type="button"
-                onClick={() => toggleAdditionalCountry(code)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-violet-600 text-white text-xs font-medium"
-              >
-                {c?.name ?? code}
-                <span className="opacity-70">×</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="mt-2 max-h-36 overflow-y-auto rounded-xl border border-white/[0.1] bg-[#0e0e14]">
-          {filteredAddMarkets.slice(0, 40).map(c => (
-            <button
-              key={c.code}
-              type="button"
-              onClick={() => {
-                toggleAdditionalCountry(c.code);
-                setAddMarketQuery('');
-              }}
-              className="w-full text-left px-3 py-1.5 text-xs text-[#e8e8f0] hover:bg-white/[0.05] flex justify-between border-b border-white/[0.04] last:border-0"
-            >
-              {c.name}
-              <span className="text-[#6b6b88]">{c.code}</span>
-            </button>
-          ))}
-        </div>
+        {readOnly ? (
+          <div className="mt-2 flex min-h-[2.5rem] flex-wrap gap-1.5">
+            {draft.additionalCountryCodes.length === 0 ? (
+              <span className={cn(OB_READONLY, 'inline-block min-w-[8rem]')}>None on file</span>
+            ) : (
+              draft.additionalCountryCodes.map(code => {
+                const c = getCountryByCode(code);
+                return (
+                  <span
+                    key={code}
+                    className="inline-flex items-center rounded-lg border border-white/[0.08] bg-[#0a0a10] px-2.5 py-1 text-xs font-medium text-[#c8c8e0]"
+                  >
+                    {c?.name ?? code}
+                  </span>
+                );
+              })
+            )}
+          </div>
+        ) : (
+          <>
+            <p className="mb-2 mt-1 text-[11px] text-[#6b6b88]">Optional — select all that apply.</p>
+            <input
+              type="search"
+              value={addMarketQuery}
+              onChange={e => setAddMarketQuery(e.target.value)}
+              placeholder="Search to add…"
+              className={OB_FIELD}
+            />
+            <div className="mt-2 flex min-h-[2rem] flex-wrap gap-1.5">
+              {draft.additionalCountryCodes.map(code => {
+                const c = getCountryByCode(code);
+                return (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => toggleAdditionalCountry(code)}
+                    className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-medium text-white"
+                  >
+                    {c?.name ?? code}
+                    <span className="opacity-70">×</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-2 max-h-36 overflow-y-auto rounded-xl border border-white/[0.1] bg-[#0e0e14]">
+              {filteredAddMarkets.slice(0, 40).map(c => (
+                <button
+                  key={c.code}
+                  type="button"
+                  onClick={() => {
+                    toggleAdditionalCountry(c.code);
+                    setAddMarketQuery('');
+                  }}
+                  className="flex w-full justify-between border-b border-white/[0.04] px-3 py-1.5 text-left text-xs text-[#e8e8f0] last:border-0 hover:bg-white/[0.05]"
+                >
+                  {c.name}
+                  <span className="text-[#6b6b88]">{c.code}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       <div className="rounded-xl border border-white/[0.1] bg-[#14141c]/80 p-4">
@@ -499,7 +648,10 @@ function StepMarkets({
             ).length;
             if (!n) return null;
             return (
-              <span key={sub} className="px-2.5 py-1 rounded-md bg-[#0e0e14] border border-white/[0.1] text-[11px] text-[#c8c8e0]">
+              <span
+                key={sub}
+                className="rounded-md border border-white/[0.1] bg-[#0e0e14] px-2.5 py-1 text-[11px] text-[#c8c8e0]"
+              >
                 {sub}: <strong className="text-white">{n}</strong>
               </span>
             );
@@ -514,23 +666,49 @@ function StepLegal({
   draft,
   setDraft,
   primary,
+  readOnly,
+  showPreSubmitLockHint,
 }: {
   draft: CompanyOnboardingDraft;
   setDraft: (p: Partial<CompanyOnboardingDraft>) => void;
   primary: AfricanCountry | undefined;
+  readOnly?: boolean;
+  showPreSubmitLockHint?: boolean;
 }) {
   return (
     <div className="animate-fade-in space-y-6">
       <header>
         <h1 className={H1}>Legal entity</h1>
         <p className={SUB}>
-          Fields adjust to <strong className="text-white">{primary?.name ?? 'your HQ'}</strong> so your team sees familiar registry language.
+          {readOnly ? (
+            <>
+              Registry-aligned details on file for{' '}
+              <strong className="text-white">{primary?.name ?? 'your HQ'}</strong>. Request changes through support if
+              your certificate was amended.
+            </>
+          ) : (
+            <>
+              Fields adjust to <strong className="text-white">{primary?.name ?? 'your HQ'}</strong> so your team sees
+              familiar registry language.
+            </>
+          )}
         </p>
       </header>
 
+      {showPreSubmitLockHint && (
+        <div className="flex gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-[11px] leading-relaxed text-[#9a9ab8]">
+          <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#6b6b88]" aria-hidden />
+          <span>
+            After you submit this application from the workspace, <strong className="text-[#c8c8e0]">organisation</strong>
+            , <strong className="text-[#c8c8e0]">markets</strong>, and <strong className="text-[#c8c8e0]">legal</strong>{' '}
+            fields lock for compliance. You will still be able to update operations and primary contact.
+          </span>
+        </div>
+      )}
+
       {primary && (
-        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-100/90 leading-relaxed">
-          <strong className="block text-emerald-300 mb-1">Compliance note</strong>
+        <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-xs leading-relaxed text-emerald-100/90">
+          <strong className="mb-1 block text-emerald-300">Compliance note</strong>
           {primary.complianceHint}
         </div>
       )}
@@ -538,41 +716,57 @@ function StepLegal({
       <div className="space-y-4">
         <div>
           <label className={cn(LABEL, 'normal-case tracking-normal')}>Legal name</label>
-          <input
-            value={draft.legalName}
-            onChange={e => setDraft({ legalName: e.target.value })}
-            className={cn('mt-1', OB_FIELD)}
-            placeholder="Registered name as on certificate"
-          />
+          {readOnly ? (
+            <div className={cn('mt-1', OB_READONLY)}>{draft.legalName.trim() || '—'}</div>
+          ) : (
+            <input
+              value={draft.legalName}
+              onChange={e => setDraft({ legalName: e.target.value })}
+              className={cn('mt-1', OB_FIELD)}
+              placeholder="Registered name as on certificate"
+            />
+          )}
         </div>
         <div>
           <label className={cn(LABEL, 'normal-case tracking-normal')}>Trading name (optional)</label>
-          <input
-            value={draft.tradingName}
-            onChange={e => setDraft({ tradingName: e.target.value })}
-            className={cn('mt-1', OB_FIELD)}
-            placeholder="Brand customers see"
-          />
+          {readOnly ? (
+            <div className={cn('mt-1', OB_READONLY)}>{draft.tradingName.trim() || '—'}</div>
+          ) : (
+            <input
+              value={draft.tradingName}
+              onChange={e => setDraft({ tradingName: e.target.value })}
+              className={cn('mt-1', OB_FIELD)}
+              placeholder="Brand customers see"
+            />
+          )}
         </div>
         <div>
           <label className={cn(LABEL, 'normal-case tracking-normal')}>
             {primary?.registrationLabel ?? 'Company registration number'}
           </label>
-          <input
-            value={draft.registrationNumber}
-            onChange={e => setDraft({ registrationNumber: e.target.value })}
-            className={cn('mt-1', OB_FIELD)}
-            placeholder={primary?.registrationPlaceholder ?? 'Registry identifier'}
-          />
+          {readOnly ? (
+            <div className={cn('mt-1 font-mono text-sm', OB_READONLY)}>{draft.registrationNumber.trim() || '—'}</div>
+          ) : (
+            <input
+              value={draft.registrationNumber}
+              onChange={e => setDraft({ registrationNumber: e.target.value })}
+              className={cn('mt-1', OB_FIELD)}
+              placeholder={primary?.registrationPlaceholder ?? 'Registry identifier'}
+            />
+          )}
         </div>
         <div>
           <label className={cn(LABEL, 'normal-case tracking-normal')}>Regulator / licence ref (optional)</label>
-          <input
-            value={draft.regulatoryRef}
-            onChange={e => setDraft({ regulatoryRef: e.target.value })}
-            className={cn('mt-1', OB_FIELD)}
-            placeholder="e.g. banking, EMI, or sector licence"
-          />
+          {readOnly ? (
+            <div className={cn('mt-1', OB_READONLY)}>{draft.regulatoryRef.trim() || '—'}</div>
+          ) : (
+            <input
+              value={draft.regulatoryRef}
+              onChange={e => setDraft({ regulatoryRef: e.target.value })}
+              className={cn('mt-1', OB_FIELD)}
+              placeholder="e.g. banking, EMI, or sector licence"
+            />
+          )}
         </div>
       </div>
     </div>
@@ -714,11 +908,13 @@ function StepReview({
   archetypeLabel,
   primary,
   setDraft,
+  identitySectionReadOnly,
 }: {
   draft: CompanyOnboardingDraft;
   archetypeLabel: string;
   primary: AfricanCountry | undefined;
   setDraft: (p: Partial<CompanyOnboardingDraft>) => void;
+  identitySectionReadOnly?: boolean;
 }) {
   const markets = [draft.primaryCountryCode, ...draft.additionalCountryCodes]
     .map(getCountryByCode)
@@ -728,46 +924,68 @@ function StepReview({
     <div className="animate-fade-in space-y-6">
       <header>
         <h1 className={H1}>Review</h1>
-        <p className={SUB}>Confirm details before we route your workspace request.</p>
+        <p className={SUB}>
+          {identitySectionReadOnly
+            ? 'Locked KYB summary plus the sections you can still change.'
+            : 'Confirm details before we route your workspace request.'}
+        </p>
       </header>
-      <dl className="rounded-xl border border-white/[0.1] bg-[#0e0e14] divide-y divide-white/[0.06] text-sm">
-        <div className="px-4 py-3 flex justify-between gap-4">
+      <dl className="divide-y divide-white/[0.06] rounded-xl border border-white/[0.1] bg-[#0e0e14] text-sm">
+        {identitySectionReadOnly && (
+          <div className="flex items-center gap-2 border-b border-amber-500/15 bg-amber-500/[0.06] px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-amber-200/90">
+            <Lock className="h-3 w-3" aria-hidden />
+            Locked identity &amp; registry
+          </div>
+        )}
+        <div className="flex justify-between gap-4 px-4 py-3">
           <dt className="text-[#6b6b88]">Archetype</dt>
-          <dd className="font-medium text-white text-right">{archetypeLabel}</dd>
+          <dd className="text-right font-medium text-white">{archetypeLabel}</dd>
         </div>
-        <div className="px-4 py-3 flex justify-between gap-4">
+        <div className="flex justify-between gap-4 px-4 py-3">
           <dt className="text-[#6b6b88]">Team size</dt>
-          <dd className="font-medium text-white text-right">
+          <dd className="text-right font-medium text-white">
             {EMPLOYEE_BANDS.find(b => b.id === draft.employeeBandId)?.label ?? '—'}
           </dd>
         </div>
         <div className="px-4 py-3">
-          <dt className="text-[#6b6b88] mb-2">Markets</dt>
+          <dt className="mb-2 text-[#6b6b88]">Markets</dt>
           <dd className="flex flex-wrap gap-1.5">
             {markets.map(c => (
-              <span key={c.code} className="px-2 py-0.5 rounded-md bg-violet-500/15 text-xs text-violet-200 border border-violet-500/20">
+              <span
+                key={c.code}
+                className="rounded-md border border-violet-500/20 bg-violet-500/15 px-2 py-0.5 text-xs text-violet-200"
+              >
                 {c.name}
               </span>
             ))}
           </dd>
         </div>
-        <div className="px-4 py-3 flex justify-between gap-4">
+        <div className="flex justify-between gap-4 px-4 py-3">
           <dt className="text-[#6b6b88]">Legal name</dt>
-          <dd className="font-medium text-white text-right">{draft.legalName}</dd>
+          <dd className="text-right font-medium text-white">{draft.legalName}</dd>
         </div>
-        <div className="px-4 py-3 flex justify-between gap-4">
+        <div className="flex justify-between gap-4 px-4 py-3">
           <dt className="text-[#6b6b88]">{primary?.registrationLabel ?? 'Registration'}</dt>
-          <dd className="font-mono text-xs text-[#e8e8f0] text-right break-all">{draft.registrationNumber}</dd>
+          <dd className="break-all text-right font-mono text-xs text-[#e8e8f0]">{draft.registrationNumber}</dd>
         </div>
-        <div className="px-4 py-3 flex justify-between gap-4">
+        {identitySectionReadOnly && (
+          <div className="flex items-center gap-2 border-t border-emerald-500/15 bg-emerald-500/[0.06] px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-emerald-200/90">
+            Editable before save
+          </div>
+        )}
+        <div className="flex justify-between gap-4 px-4 py-3">
           <dt className="text-[#6b6b88]">Volume</dt>
-          <dd className="text-white text-right">
-            {VOLUME_BANDS.find(v => v.id === draft.volumeBandId)?.label ?? '—'}
+          <dd className="text-right text-white">{VOLUME_BANDS.find(v => v.id === draft.volumeBandId)?.label ?? '—'}</dd>
+        </div>
+        <div className="flex justify-between gap-4 px-4 py-3">
+          <dt className="text-[#6b6b88]">Channels</dt>
+          <dd className="max-w-[60%] text-right text-xs text-[#e8e8f0]">
+            {draft.channelIds.map(id => CHANNELS.find(c => c.id === id)?.label).filter(Boolean).join(' · ') || '—'}
           </dd>
         </div>
-        <div className="px-4 py-3 flex justify-between gap-4">
+        <div className="flex justify-between gap-4 px-4 py-3">
           <dt className="text-[#6b6b88]">Contact</dt>
-          <dd className="text-white text-right">
+          <dd className="text-right text-white">
             {draft.leadFirstName} {draft.leadLastName}
             <br />
             <span className="text-xs text-[#9a9ab8]">{draft.leadEmail}</span>
