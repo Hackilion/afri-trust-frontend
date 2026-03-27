@@ -1,6 +1,11 @@
-import { Building2, Plug, Rocket, ShieldCheck } from 'lucide-react';
+import { Building2, Mail, Rocket, ShieldCheck } from 'lucide-react';
 
 const STEPS = [
+  {
+    icon: Mail,
+    title: 'Company email',
+    blurb: 'Open your workspace with one verified work email — no friction up front.',
+  },
   {
     icon: Building2,
     title: 'Company profile',
@@ -12,14 +17,9 @@ const STEPS = [
     blurb: 'Verification workflows, tiers, and audit-ready logs.',
   },
   {
-    icon: Plug,
-    title: 'Connect',
-    blurb: 'API keys, webhooks, and your existing stack.',
-  },
-  {
     icon: Rocket,
     title: 'Go live',
-    blurb: 'Applicants flow in with compliance you can defend.',
+    blurb: 'APIs, webhooks, and applicants with compliance you can defend.',
   },
 ] as const;
 

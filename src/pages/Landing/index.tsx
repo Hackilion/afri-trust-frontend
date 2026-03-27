@@ -24,14 +24,14 @@ export default function LandingPage() {
           <h1 className="font-display text-[clamp(2.25rem,5vw,3.75rem)] font-semibold text-white leading-[1.08] tracking-tight max-w-3xl animate-fade-in">
             One instance.{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-violet-200 to-emerald-200/90">
-              Company-first onboarding
+              Email-first signup
             </span>
-            , then full trust infrastructure.
+            , then company onboarding and full trust infrastructure.
           </h1>
 
           <p className="mt-6 text-lg text-[#9a9ab8] max-w-2xl leading-relaxed animate-fade-in">
-            Register starts with your organisation profile — markets, KYB, and how you operate — so every later step is
-            already in context. Log in anytime to the same workspace.
+            Register with your company email, then tell us how your organisation operates — so verification defaults and
+            compliance cues match your markets from day one. Log in anytime to the same workspace.
           </p>
 
           <div className="mt-10 flex flex-wrap items-center gap-3 animate-fade-in">
@@ -39,7 +39,7 @@ export default function LandingPage() {
               to="/register"
               className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-500 shadow-xl shadow-indigo-950/50 transition-transform hover:translate-y-[-1px]"
             >
-              Start with company setup
+              Create account
               <ArrowRight className="w-4 h-4" />
             </Link>
             <Link
@@ -60,8 +60,8 @@ export default function LandingPage() {
               From register to live verifications
             </h2>
             <p className="mt-4 text-[#8a8aa8] text-sm sm:text-base leading-relaxed">
-              The path is intentional: we capture company reality before accounts and integrations, so compliance and
-              product defaults match how you actually work.
+              The path is intentional: a single company email anchors your tenant, then we capture how you operate before
+              you wire integrations — so defaults match your markets.
             </p>
           </div>
           <ProcessDiagram />

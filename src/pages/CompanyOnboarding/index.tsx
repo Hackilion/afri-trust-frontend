@@ -24,6 +24,10 @@ export type CompanyOnboardingProps = {
   onRegistrationProfileComplete?: () => void;
 };
 
+/** Legible text/placeholder and stronger borders on light panels. */
+const OB_FIELD =
+  'w-full rounded-xl border-2 border-[#97866e] bg-[#fffdfb] px-3 py-2.5 text-[15px] leading-snug text-[#14110d] placeholder:text-[#5a4d42] shadow-[inset_0_1px_4px_rgba(20,17,13,0.14)] focus:outline-none focus:ring-[3px] focus:ring-[#c4a574]/35 focus:border-[#7d6238]';
+
 const STEP_META = [
   { title: 'Welcome', subtitle: 'How we tailor AfriTrust to you' },
   { title: 'Organisation', subtitle: 'Sector and scale' },
@@ -102,7 +106,7 @@ export default function CompanyOnboarding({
     mutationFn: () => submitCompanyOnboarding(useCompanyOnboardingStore.getState().draft),
     onSuccess: () => {
       if (registrationFlow && onRegistrationProfileComplete) {
-        addToast('Company profile saved. Continue to set up your account.', 'success');
+        addToast('Company profile complete — opening your workspace.', 'success');
         onRegistrationProfileComplete();
         return;
       }
@@ -411,7 +415,7 @@ function StepMarkets({
           value={countryQuery}
           onChange={e => setCountryQuery(e.target.value)}
           placeholder="Search country…"
-          className="mt-2 w-full rounded-xl border border-[#e0d8cc] px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c4a574]/50"
+          className={cn('mt-2', OB_FIELD)}
         />
         <div className="mt-2 max-h-48 overflow-y-auto rounded-xl border border-[#ebe5dc] bg-white/90 divide-y divide-[#f0ebe3]">
           {filteredCountries.slice(0, 80).map(c => (
@@ -450,7 +454,7 @@ function StepMarkets({
           value={addMarketQuery}
           onChange={e => setAddMarketQuery(e.target.value)}
           placeholder="Search to add…"
-          className="w-full rounded-xl border border-[#e0d8cc] px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c4a574]/50"
+          className={OB_FIELD}
         />
         <div className="mt-2 flex flex-wrap gap-1.5 min-h-[2rem]">
           {draft.additionalCountryCodes.map(code => {
@@ -539,7 +543,7 @@ function StepLegal({
           <input
             value={draft.legalName}
             onChange={e => setDraft({ legalName: e.target.value })}
-            className="mt-1 w-full rounded-xl border border-[#e0d8cc] px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c4a574]/50"
+            className={cn('mt-1', OB_FIELD)}
             placeholder="Registered name as on certificate"
           />
         </div>
@@ -548,7 +552,7 @@ function StepLegal({
           <input
             value={draft.tradingName}
             onChange={e => setDraft({ tradingName: e.target.value })}
-            className="mt-1 w-full rounded-xl border border-[#e0d8cc] px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c4a574]/50"
+            className={cn('mt-1', OB_FIELD)}
             placeholder="Brand customers see"
           />
         </div>
@@ -559,7 +563,7 @@ function StepLegal({
           <input
             value={draft.registrationNumber}
             onChange={e => setDraft({ registrationNumber: e.target.value })}
-            className="mt-1 w-full rounded-xl border border-[#e0d8cc] px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c4a574]/50"
+            className={cn('mt-1', OB_FIELD)}
             placeholder={primary?.registrationPlaceholder ?? 'Registry identifier'}
           />
         </div>
@@ -568,7 +572,7 @@ function StepLegal({
           <input
             value={draft.regulatoryRef}
             onChange={e => setDraft({ regulatoryRef: e.target.value })}
-            className="mt-1 w-full rounded-xl border border-[#e0d8cc] px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c4a574]/50"
+            className={cn('mt-1', OB_FIELD)}
             placeholder="e.g. banking, EMI, or sector licence"
           />
         </div>
@@ -636,7 +640,7 @@ function StepOperations({
           value={draft.useCaseNotes}
           onChange={e => setDraft({ useCaseNotes: e.target.value })}
           rows={4}
-          className="mt-1 w-full rounded-xl border border-[#e0d8cc] px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c4a574]/50 resize-none"
+          className={cn('mt-1 resize-none', OB_FIELD)}
           placeholder="e.g. cross-border remittance, agent KYC, student onboarding…"
         />
       </div>
@@ -665,7 +669,7 @@ function StepTeam({
           <input
             value={draft.leadFirstName}
             onChange={e => setDraft({ leadFirstName: e.target.value })}
-            className="mt-1 w-full rounded-xl border border-[#e0d8cc] px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c4a574]/50"
+            className={cn('mt-1', OB_FIELD)}
           />
         </div>
         <div>
@@ -673,7 +677,7 @@ function StepTeam({
           <input
             value={draft.leadLastName}
             onChange={e => setDraft({ leadLastName: e.target.value })}
-            className="mt-1 w-full rounded-xl border border-[#e0d8cc] px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c4a574]/50"
+            className={cn('mt-1', OB_FIELD)}
           />
         </div>
       </div>
@@ -683,20 +687,20 @@ function StepTeam({
           type="email"
           value={draft.leadEmail}
           onChange={e => setDraft({ leadEmail: e.target.value })}
-          className="mt-1 w-full rounded-xl border border-[#e0d8cc] px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#c4a574]/50"
+          className={cn('mt-1', OB_FIELD)}
           placeholder="you@company.com"
         />
       </div>
       <div>
         <label className="text-xs font-semibold text-[#5c5346]">Phone</label>
-        <div className="mt-1 flex rounded-xl border border-[#e0d8cc] bg-white overflow-hidden focus-within:ring-2 focus-within:ring-[#c4a574]/50">
-          <span className="px-3 py-2.5 text-sm text-[#6b6358] bg-[#f7f3ec] border-r border-[#e0d8cc] font-mono shrink-0">
+        <div className="mt-1 flex rounded-xl border-2 border-[#97866e] bg-[#fffdfb] overflow-hidden shadow-[inset_0_1px_4px_rgba(20,17,13,0.14)] focus-within:ring-[3px] focus-within:ring-[#c4a574]/35 focus-within:border-[#7d6238]">
+          <span className="px-3 py-2.5 text-[15px] text-[#3d362c] bg-[#f0ebe3] border-r-2 border-[#c9bfb0] font-mono shrink-0">
             {primary?.dialCode ?? '+—'}
           </span>
           <input
             value={draft.leadPhoneLocal}
             onChange={e => setDraft({ leadPhoneLocal: e.target.value })}
-            className="flex-1 min-w-0 px-3 py-2.5 text-sm focus:outline-none"
+            className="flex-1 min-w-0 px-3 py-2.5 text-[15px] text-[#14110d] placeholder:text-[#5a4d42] bg-transparent focus:outline-none"
             placeholder="Local number without country code"
           />
         </div>
@@ -779,7 +783,7 @@ function StepReview({
           type="checkbox"
           checked={draft.acceptedTerms}
           onChange={e => setDraft({ acceptedTerms: e.target.checked })}
-          className="mt-1 rounded border-[#c4a574] text-[#c4a574] focus:ring-[#c4a574]"
+          className="mt-1 h-4 w-4 shrink-0 rounded border-2 border-[#97866e] text-[#5c8f7b] accent-[#2d6b52] focus:ring-2 focus:ring-[#c4a574]/50"
         />
         <span className="text-xs text-[#5c5346] leading-relaxed">
           I confirm the information is accurate to the best of my knowledge and authorise AfriTrust to process this data

@@ -25,9 +25,9 @@ export default function LoginPage() {
         <div className="text-center mb-10 animate-fade-in">
           <h1 className="font-display text-3xl sm:text-4xl font-semibold text-white tracking-tight">Log in</h1>
           <p className="mt-3 text-sm text-[#8a8aa8] leading-relaxed">
-            Access your AfriTrust workspace. New here?{' '}
+            Access your AfriTrust workspace.             New here?{' '}
             <Link to="/register" className="text-indigo-400 hover:text-indigo-300 font-medium">
-              Register your company first
+              Register with your company email
             </Link>
             .
           </p>
