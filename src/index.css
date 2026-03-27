@@ -1,0 +1,98 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,650;0,9..144,700&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'DM Sans', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'DM Sans', sans-serif;
+  background-color: #f8f8fc;
+  color: #111118;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1d1e0;
+  border-radius: 3px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in    { animation: fadeIn 0.25s ease both; }
+.animate-slide-in-r { animation: slideInRight 0.25s ease both; }
+.animate-scale-in   { animation: scaleIn 0.2s ease both; }
+
+@keyframes landingFlowDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes landingNodeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes landingVlineDraw {
+  from {
+    transform: scaleY(0);
+    transform-origin: top;
+  }
+  to {
+    transform: scaleY(1);
+    transform-origin: top;
+  }
+}
+
+.landing-flow-path {
+  stroke-dasharray: 1400;
+  stroke-dashoffset: 1400;
+  animation: landingFlowDraw 1.8s cubic-bezier(0.4, 0, 0.2, 1) 0.3s forwards;
+}
+.landing-flow-node {
+  animation: landingNodeIn 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.landing-flow-vline {
+  background: linear-gradient(to bottom, rgba(99, 102, 241, 0.5), rgba(52, 211, 153, 0.25));
+  animation: landingVlineDraw 0.9s ease 0.4s both;
+}
