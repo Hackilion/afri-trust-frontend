@@ -5,6 +5,8 @@ import CompanyOnboarding from '../CompanyOnboarding';
 import { useCompanyOnboardingStore } from '../../store/companyOnboardingStore';
 import { DEMO_EMAIL_VERIFICATION_CODE, useRegistrationSessionStore } from '../../store/registrationSessionStore';
 import { useUIStore } from '../../store/uiStore';
+import { useSessionStore } from '../../store/sessionStore';
+import { resolveWorkspaceUserFromEmail } from '../../mocks/workspaceUsers';
 import { cn } from '../../lib/utils';
 
 const inputClass =
@@ -289,6 +291,23 @@ export default function RegisterPage() {
   const [phase, setPhase] = useState<1 | 2 | 3>(1);
 
   const finishRegistration = () => {
+    const email = useCompanyOnboardingStore.getState().draft.leadEmail.trim().toLowerCase();
+    const resolved = resolveWorkspaceUserFromEmail(email);
+    if (resolved) {
+      useSessionStore.getState().setUser(resolved);
+      useSessionStore.getState().setImpersonatedOrgId(null);
+    } else {
+      const local = useCompanyOnboardingStore.getState().draft.leadEmail.trim().split('@')[0] || 'User';
+      useSessionStore.getState().setUser({
+        id: `u-reg-${Date.now()}`,
+        email: useCompanyOnboardingStore.getState().draft.leadEmail.trim(),
+        name: local.charAt(0).toUpperCase() + local.slice(1),
+        initials: local.slice(0, 2).toUpperCase(),
+        orgId: 'org-gh-bank',
+        orgRole: 'owner',
+      });
+      useSessionStore.getState().setImpersonatedOrgId(null);
+    }
     useRegistrationSessionStore.getState().reset();
     navigate('/dashboard');
   };

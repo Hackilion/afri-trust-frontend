@@ -28,6 +28,7 @@ import {
   type DryRunResult,
 } from '../../../lib/workflowValidation';
 import { useDeveloperStore } from '../../../store/developerStore';
+import { useSession } from '../../../hooks/useSession';
 import type {
   Workflow,
   WorkflowGraphEdge,
@@ -373,6 +374,8 @@ function AddStepPanel({
 export default function WorkflowBuilder() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { can } = useSession();
+  const readOnlyRole = !can('workflows.write');
   const { data: workflow, isLoading } = useWorkflow(id!);
   const { data: catalogue } = useCheckCatalogue();
   const { data: tiers } = useTierProfiles();
@@ -470,12 +473,19 @@ export default function WorkflowBuilder() {
     return <div className="text-center py-16 text-gray-400">Workflow not found</div>;
   }
 
-  const isEditable = workflow.status === 'draft';
-  const canPublish = validation?.canPublish ?? false;
+  const isEditable = workflow.status === 'draft' && !readOnlyRole;
+  const canPublish = (validation?.canPublish ?? false) && !readOnlyRole;
   const envLabel = (workflow.environment ?? 'production') === 'sandbox' ? 'Sandbox' : 'Production';
 
   return (
     <div className="space-y-5">
+      {readOnlyRole && (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          <span className="font-semibold text-slate-900">View-only access.</span> Your role can inspect workflows but cannot
+          edit, publish, or run sandbox actions. Ask an owner or admin for <code className="text-xs">workflows:write</code>{' '}
+          if you need to change definitions.
+        </div>
+      )}
       {workflowDevMode && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-violet-200 bg-violet-50/90 px-4 py-2.5 text-xs text-violet-900">
           <div className="flex items-center gap-2 font-medium">

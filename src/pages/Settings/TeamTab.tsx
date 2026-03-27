@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { UserPlus, Trash2 } from 'lucide-react';
 import { useTeam, useInviteTeamMember, useRemoveTeamMember } from '../../hooks/useSettings';
+import { useSession } from '../../hooks/useSession';
 import { formatRelativeTime } from '../../lib/formatters';
 import { cn } from '../../lib/utils';
 import type { TeamRole } from '../../types';
@@ -13,9 +14,12 @@ const ROLES: { value: TeamRole; label: string; desc: string }[] = [
 ];
 
 export function TeamTab() {
+  const { workspaceOrgId, can } = useSession();
   const { data: team, isLoading } = useTeam();
   const { mutate: invite, isPending: inviting } = useInviteTeamMember();
   const { mutate: remove } = useRemoveTeamMember();
+  const canInvite = can('settings.team.invite');
+  const canRemove = can('settings.team.remove');
 
   const [showInvite, setShowInvite] = useState(false);
   const [email, setEmail] = useState('');
@@ -25,13 +29,34 @@ export function TeamTab() {
     invite({ email, role }, { onSuccess: () => { setShowInvite(false); setEmail(''); } });
   };
 
+  if (!workspaceOrgId) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-6 text-sm text-amber-950">
+        <p className="font-semibold">No tenant workspace selected</p>
+        <p className="mt-2 text-amber-900/85">
+          Super admins must pick a company in the top bar to manage that organisation&apos;s team. Platform staff are not
+          members of a specific tenant until impersonation is active.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-[13px] text-gray-500">Manage who has access to your AfriTrust workspace.</p>
-        <button onClick={() => setShowInvite(true)} className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-[13px] font-medium hover:bg-indigo-700 transition-colors">
-          <UserPlus className="w-3.5 h-3.5" /> Invite Member
-        </button>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-[13px] text-gray-500">
+          {canInvite
+            ? 'Manage who has access to your AfriTrust workspace.'
+            : 'View-only: you can see the roster but cannot send invitations.'}
+        </p>
+        {canInvite && (
+          <button
+            onClick={() => setShowInvite(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg text-[13px] font-medium hover:bg-indigo-700 transition-colors"
+          >
+            <UserPlus className="w-3.5 h-3.5" /> Invite Member
+          </button>
+        )}
       </div>
 
       {showInvite && (
@@ -95,7 +120,7 @@ export function TeamTab() {
                   </td>
                   <td className="px-4 py-3.5 text-[12px] text-gray-500">{m.lastActiveAt ? formatRelativeTime(m.lastActiveAt) : '—'}</td>
                   <td className="px-4 py-3.5">
-                    {m.role !== 'owner' && (
+                    {canRemove && m.role !== 'owner' && (
                       <button onClick={() => remove(m.id)} className="text-red-400 hover:text-red-600 transition-colors p-1">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppShell } from '../layouts/AppShell';
 import { LoadingSpinner } from '../components/shared/LoadingSpinner';
+import { RequireSuperAdmin } from '../components/auth/RequireSuperAdmin';
 
 const Landing = lazy(() => import('../pages/Landing'));
 const Login = lazy(() => import('../pages/Login'));
@@ -14,6 +15,9 @@ const Workflows = lazy(() => import('../pages/Workflows'));
 const WorkflowBuilder = lazy(() => import('../pages/Workflows/WorkflowBuilder'));
 const AuditLogs = lazy(() => import('../pages/AuditLogs'));
 const CompanyOnboarding = lazy(() => import('../pages/CompanyOnboarding'));
+const PlatformOverview = lazy(() => import('../pages/Platform/PlatformOverview'));
+const PlatformOrganizations = lazy(() => import('../pages/Platform/PlatformOrganizations'));
+const PlatformUsers = lazy(() => import('../pages/Platform/PlatformUsers'));
 
 const ApiKeysTab = lazy(() => import('../pages/Settings/ApiKeysTab').then(m => ({ default: m.ApiKeysTab })));
 const WebhooksTab = lazy(() => import('../pages/Settings/WebhooksTab').then(m => ({ default: m.WebhooksTab })));
@@ -41,6 +45,15 @@ export const router = createBrowserRouter([
       { path: 'workflows/:id', element: wrap(WorkflowBuilder) },
       { path: 'audit-logs', element: wrap(AuditLogs) },
       { path: 'company-onboarding', element: wrap(CompanyOnboarding) },
+      {
+        path: 'platform',
+        element: <RequireSuperAdmin />,
+        children: [
+          { index: true, element: wrap(PlatformOverview) },
+          { path: 'organizations', element: wrap(PlatformOrganizations) },
+          { path: 'users', element: wrap(PlatformUsers) },
+        ],
+      },
       {
         path: 'settings',
         element: wrap(Settings),

@@ -57,26 +57,27 @@ export async function deleteWebhook(id: string): Promise<void> {
   if (idx >= 0) mockWebhooks.splice(idx, 1);
 }
 
-export async function getTeam() {
+export async function getTeam(organizationId: string) {
   await delay();
-  return [...mockTeam];
+  return mockTeam.filter(m => m.organizationId != null && m.organizationId === organizationId);
 }
 
-export async function inviteTeamMember(email: string, role: TeamRole): Promise<void> {
+export async function inviteTeamMember(organizationId: string, email: string, role: TeamRole): Promise<void> {
   await delay();
   mockTeam.push({
     id: `TM-${Date.now()}`,
-    name: email.split('@')[0],
+    name: email.split('@')[0].replace(/[._]/g, ' '),
     email,
     role,
     status: 'invited',
     invitedAt: new Date().toISOString(),
+    organizationId,
   });
 }
 
-export async function removeTeamMember(id: string): Promise<void> {
+export async function removeTeamMember(organizationId: string, id: string): Promise<void> {
   await delay();
-  const idx = mockTeam.findIndex(m => m.id === id);
+  const idx = mockTeam.findIndex(m => m.id === id && m.organizationId === organizationId);
   if (idx >= 0) mockTeam.splice(idx, 1);
 }
 

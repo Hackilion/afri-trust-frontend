@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as settingsService from '../services/settingsService';
 import { useUIStore } from '../store/uiStore';
+import type { TeamRole } from '../types';
+import { useSession } from './useSession';
 
 export function useApiKeys() {
   return useQuery({ queryKey: ['api-keys'], queryFn: () => settingsService.getApiKeys() });
@@ -52,16 +54,27 @@ export function useDeleteWebhook() {
 }
 
 export function useTeam() {
-  return useQuery({ queryKey: ['team'], queryFn: settingsService.getTeam });
+  const { workspaceOrgId } = useSession();
+  return useQuery({
+    queryKey: ['team', workspaceOrgId],
+    queryFn: () => settingsService.getTeam(workspaceOrgId!),
+    enabled: Boolean(workspaceOrgId),
+  });
 }
 
 export function useInviteTeamMember() {
   const qc = useQueryClient();
   const addToast = useUIStore(s => s.addToast);
+  const { workspaceOrgId } = useSession();
   return useMutation({
-    mutationFn: ({ email, role }: { email: string; role: Parameters<typeof settingsService.inviteTeamMember>[1] }) =>
-      settingsService.inviteTeamMember(email, role),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['team'] }); addToast('Invitation sent'); },
+    mutationFn: ({ email, role }: { email: string; role: TeamRole }) => {
+      if (!workspaceOrgId) throw new Error('No workspace');
+      return settingsService.inviteTeamMember(workspaceOrgId, email, role);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['team'] });
+      addToast('Invitation sent');
+    },
     onError: () => addToast('Failed to send invitation', 'error'),
   });
 }
@@ -69,9 +82,16 @@ export function useInviteTeamMember() {
 export function useRemoveTeamMember() {
   const qc = useQueryClient();
   const addToast = useUIStore(s => s.addToast);
+  const { workspaceOrgId } = useSession();
   return useMutation({
-    mutationFn: (id: string) => settingsService.removeTeamMember(id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['team'] }); addToast('Team member removed'); },
+    mutationFn: (id: string) => {
+      if (!workspaceOrgId) throw new Error('No workspace');
+      return settingsService.removeTeamMember(workspaceOrgId, id);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['team'] });
+      addToast('Team member removed');
+    },
     onError: () => addToast('Failed to remove member', 'error'),
   });
 }

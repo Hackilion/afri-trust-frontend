@@ -6,3 +6,4 @@ export * from './workflow';
 export * from './auditLog';
 export * from './consent';
 export * from './companyOnboarding';
+export * from './rbac';

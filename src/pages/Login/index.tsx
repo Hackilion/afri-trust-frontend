@@ -1,13 +1,28 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowRight, Lock, Mail } from 'lucide-react';
 import { useUIStore } from '../../store/uiStore';
+import { useSessionStore } from '../../store/sessionStore';
+import { DEMO_EMAIL_TO_USER, DEMO_LOGIN_HINTS } from '../../mocks/workspaceUsers';
+import { cn } from '../../lib/utils';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const addToast = useUIStore(s => s.addToast);
+  const setUser = useSessionStore(s => s.setUser);
+  const setImpersonatedOrgId = useSessionStore(s => s.setImpersonatedOrgId);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  const from = (location.state as { from?: string } | null)?.from ?? '/dashboard';
+
+  const existing = useSessionStore(s => s.user);
+  useEffect(() => {
+    if (!existing) return;
+    if (existing.platformRole === 'super_admin') navigate('/platform', { replace: true });
+    else navigate(from.startsWith('/login') ? '/dashboard' : from, { replace: true });
+  }, [existing, from, navigate]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -15,8 +30,25 @@ export default function LoginPage() {
       addToast('Enter email and password to continue.', 'error');
       return;
     }
+    const key = email.trim().toLowerCase();
+    const workspaceUser = DEMO_EMAIL_TO_USER[key];
+    if (!workspaceUser) {
+      addToast('Use a demo account below — any password works.', 'error');
+      return;
+    }
+    setUser(workspaceUser);
+    setImpersonatedOrgId(null);
     addToast('Signed in — welcome back.', 'success');
-    navigate('/dashboard');
+    if (workspaceUser.platformRole === 'super_admin') {
+      navigate('/platform', { replace: true });
+    } else {
+      navigate(from.startsWith('/login') ? '/dashboard' : from, { replace: true });
+    }
+  };
+
+  const fillDemo = (demoEmail: string) => {
+    setEmail(demoEmail);
+    setPassword('demo');
   };
 
   return (
@@ -75,6 +107,28 @@ export default function LoginPage() {
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
+
+        <div className="mt-6 rounded-2xl border border-white/[0.06] bg-[#0c0c12]/80 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-violet-400/90 mb-3">Demo roles</p>
+          <ul className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+            {DEMO_LOGIN_HINTS.map(h => (
+              <li key={h.email}>
+                <button
+                  type="button"
+                  onClick={() => fillDemo(h.email)}
+                  className={cn(
+                    'w-full text-left rounded-xl border border-white/[0.06] px-3 py-2.5 transition-colors',
+                    'hover:border-violet-500/35 hover:bg-violet-500/5'
+                  )}
+                >
+                  <span className="text-xs font-semibold text-white">{h.label}</span>
+                  <span className="block text-[11px] text-[#6b6b88] mt-0.5">{h.desc}</span>
+                  <span className="text-[10px] text-indigo-400/90 font-mono mt-1 block">{h.email}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
 
         <p className="mt-8 text-center text-xs text-[#5a5a78]">
           <Link to="/" className="hover:text-[#8a8aa8] transition-colors">

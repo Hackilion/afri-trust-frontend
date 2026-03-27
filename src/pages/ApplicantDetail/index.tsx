@@ -15,6 +15,7 @@ import { DOCUMENT_LABELS, TIER_LABELS, COUNTRY_NAMES } from '../../lib/constants
 import { formatDate, formatDateTime, formatRelativeTime } from '../../lib/formatters';
 import type { VerificationCheck, TimelineEvent, VerificationSession, ConsentGrant } from '../../types';
 import { cn } from '../../lib/utils';
+import { useSession } from '../../hooks/useSession';
 
 const CHECK_LABELS: Record<string, string> = {
   liveness: 'Liveness Detection',
@@ -192,6 +193,8 @@ function ConsentRow({ grant }: { grant: ConsentGrant }) {
 
 export default function ApplicantDetail() {
   const { id } = useParams<{ id: string }>();
+  const { can } = useSession();
+  const canWriteApplicants = can('applicants.write');
   const { data: applicant, isLoading } = useApplicant(id!);
   const { data: checks } = useApplicantChecks(id!);
   const { data: timeline } = useApplicantTimeline(id!);
@@ -238,44 +241,50 @@ export default function ApplicantDetail() {
           </div>
 
           {/* Action Bar */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {confirmAction && (
-              <span className="text-[12px] text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                Click again to confirm {confirmAction}
-              </span>
-            )}
-            <button
-              onClick={() => updateStatus({ status: 'needs_review' })}
-              disabled={isPending}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-[13px] font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-            >
-              <MessageSquare className="w-3.5 h-3.5" /> Request Info
-            </button>
-            <button
-              onClick={() => handleAction('rejected')}
-              disabled={isPending}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-medium disabled:opacity-50 transition-colors',
-                confirmAction === 'rejected'
-                  ? 'bg-red-600 text-white'
-                  : 'border border-red-200 text-red-600 hover:bg-red-50'
+          {canWriteApplicants ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              {confirmAction && (
+                <span className="text-[12px] text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  Click again to confirm {confirmAction}
+                </span>
               )}
-            >
-              <XCircle className="w-3.5 h-3.5" /> Reject
-            </button>
-            <button
-              onClick={() => handleAction('approved')}
-              disabled={isPending}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-medium disabled:opacity-50 transition-colors',
-                confirmAction === 'approved'
-                  ? 'bg-emerald-700 text-white'
-                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
-              )}
-            >
-              <CheckCircle className="w-3.5 h-3.5" /> Approve
-            </button>
-          </div>
+              <button
+                onClick={() => updateStatus({ status: 'needs_review' })}
+                disabled={isPending}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-[13px] font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              >
+                <MessageSquare className="w-3.5 h-3.5" /> Request Info
+              </button>
+              <button
+                onClick={() => handleAction('rejected')}
+                disabled={isPending}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-medium disabled:opacity-50 transition-colors',
+                  confirmAction === 'rejected'
+                    ? 'bg-red-600 text-white'
+                    : 'border border-red-200 text-red-600 hover:bg-red-50'
+                )}
+              >
+                <XCircle className="w-3.5 h-3.5" /> Reject
+              </button>
+              <button
+                onClick={() => handleAction('approved')}
+                disabled={isPending}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-2 rounded-lg text-[13px] font-medium disabled:opacity-50 transition-colors',
+                  confirmAction === 'approved'
+                    ? 'bg-emerald-700 text-white'
+                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                )}
+              >
+                <CheckCircle className="w-3.5 h-3.5" /> Approve
+              </button>
+            </div>
+          ) : (
+            <p className="text-[12px] text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 max-w-sm">
+              Read-only profile — your role cannot change applicant status.
+            </p>
+          )}
         </div>
       </div>
 

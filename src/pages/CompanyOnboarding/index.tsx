@@ -12,11 +12,13 @@ import {
   getCountryByCode,
   type AfricanCountry,
 } from '../../lib/africanMarkets';
+import { isOnboardingStepValid } from '../../lib/companyOnboardingValidation';
 import { submitCompanyOnboarding } from '../../services/companyOnboardingService';
 import { useCompanyOnboardingStore, STEP_COUNT } from '../../store/companyOnboardingStore';
 import { useUIStore } from '../../store/uiStore';
 import type { CompanyOnboardingDraft } from '../../types/companyOnboarding';
 import { cn } from '../../lib/utils';
+import { CompanyManagementPanel } from './CompanyManagementPanel';
 
 export type CompanyOnboardingProps = {
   /** When set, successful profile submit calls `onRegistrationProfileComplete` instead of the default success screen. */
@@ -41,34 +43,6 @@ const STEP_META = [
   { title: 'Team lead', subtitle: 'Primary contact' },
   { title: 'Review', subtitle: 'Confirm and submit' },
 ] as const;
-
-function stepValid(i: number, d: CompanyOnboardingDraft): boolean {
-  switch (i) {
-    case 0:
-      return true;
-    case 1:
-      return Boolean(d.archetypeId && d.employeeBandId);
-    case 2:
-      return Boolean(d.primaryCountryCode);
-    case 3:
-      return d.legalName.trim().length >= 2 && d.registrationNumber.trim().length >= 2;
-    case 4:
-      return Boolean(d.volumeBandId) && d.channelIds.length > 0;
-    case 5: {
-      const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.leadEmail.trim());
-      return (
-        d.leadFirstName.trim().length >= 1 &&
-        d.leadLastName.trim().length >= 1 &&
-        emailOk &&
-        d.leadPhoneLocal.replace(/\D/g, '').length >= 6
-      );
-    }
-    case 6:
-      return d.acceptedTerms;
-    default:
-      return false;
-  }
-}
 
 export default function CompanyOnboarding({
   registrationFlow,
@@ -121,7 +95,7 @@ export default function CompanyOnboarding({
   });
 
   const goNext = () => {
-    if (!stepValid(step, draft)) {
+    if (!isOnboardingStepValid(step, draft)) {
       addToast('Complete the required fields to continue.', 'error');
       return;
     }
@@ -200,12 +174,16 @@ export default function CompanyOnboarding({
   }
 
   return (
-    <div
-      className={cn(
-        'relative rounded-[1.35rem] overflow-hidden border border-white/[0.08] bg-gradient-to-b from-[#16161f] to-[#0c0c12] shadow-[0_32px_100px_-40px_rgba(99,102,241,0.35)]',
-        shellMin
+    <>
+      {!registrationFlow && (
+        <CompanyManagementPanel draft={draft} currentStep={step} onGoToStep={setStepIndex} />
       )}
-    >
+      <div
+        className={cn(
+          'relative rounded-[1.35rem] overflow-hidden border border-white/[0.08] bg-gradient-to-b from-[#16161f] to-[#0c0c12] shadow-[0_32px_100px_-40px_rgba(99,102,241,0.35)]',
+          shellMin
+        )}
+      >
       <div
         className="absolute inset-0 opacity-[0.45] pointer-events-none"
         style={{
@@ -312,6 +290,7 @@ export default function CompanyOnboarding({
         </div>
       </div>
     </div>
+    </>
   );
 }
 

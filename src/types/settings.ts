@@ -50,6 +50,8 @@ export interface TeamMember {
   status: 'active' | 'invited' | 'suspended';
   lastActiveAt?: string;
   invitedAt: string;
+  /** Tenant scope; null when unassigned (platform directory only). */
+  organizationId: string | null;
 }
 
 export interface ComplianceTier {
