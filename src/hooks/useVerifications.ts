@@ -22,7 +22,7 @@ export function useCreateVerificationSession() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ applicantId, workflowId }: { applicantId: string; workflowId: string }) =>
-      createVerificationSession(applicantId, workflowId),
+      createVerificationSession(applicantId, { workflow_id: workflowId }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['verifications'] });
       void qc.invalidateQueries({ queryKey: ['sessions'] });

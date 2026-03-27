@@ -160,6 +160,7 @@ export function workflowDetailToFrontend(w: BackendWorkflowDetail): Workflow {
   const edges = buildLinearEdges(norm);
   return {
     id: w.id,
+    shortCode: w.short_code,
     orgId: w.org_id,
     name: w.name,
     description: w.description ?? '',
@@ -178,6 +179,7 @@ export function workflowDetailToFrontend(w: BackendWorkflowDetail): Workflow {
 export function workflowListItemToFrontend(w: BackendWorkflowListItem): Workflow {
   return {
     id: w.id,
+    shortCode: w.short_code,
     orgId: w.org_id,
     name: w.name,
     description: w.description ?? '',

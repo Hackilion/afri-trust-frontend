@@ -61,17 +61,18 @@ export async function listVerifications(params: {
 /** `POST /v1/verifications` — then loads full detail for steps. */
 export async function createVerificationSession(
   applicantId: string,
-  workflowId: string
+  workflowRef: { workflow_id: string } | { workflow_code: string }
 ): Promise<VerificationSession> {
   if (!isLiveApi()) {
     throw new Error('Create verification requires the live API.');
   }
+  const body =
+    'workflow_code' in workflowRef
+      ? { applicant_id: applicantId, workflow_code: workflowRef.workflow_code }
+      : { applicant_id: applicantId, workflow_id: workflowRef.workflow_id };
   const created = await apiFetch<VerificationCreateOut>('/v1/verifications', {
     method: 'POST',
-    body: JSON.stringify({
-      applicant_id: applicantId,
-      workflow_id: workflowId,
-    }),
+    body: JSON.stringify(body),
   });
   const full = await backendGetVerificationDetail(String(created.id));
   if (!full) throw new Error('Session created but could not load verification detail.');

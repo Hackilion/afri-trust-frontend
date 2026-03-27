@@ -105,6 +105,8 @@ export type WorkflowStepCreate = Omit<WorkflowStep, 'order' | 'nodeId'> & {
 
 export interface Workflow {
   id: string;
+  /** 6-digit org-unique code for API / SDK (`workflow_code`). */
+  shortCode?: string;
   orgId: string;
   name: string;
   description: string;

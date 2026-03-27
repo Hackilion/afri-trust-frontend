@@ -173,6 +173,17 @@ function WorkflowCard({ workflow }: { workflow: Workflow }) {
               </span>
             )}
             <span className="text-xs text-gray-400">v{workflow.version}</span>
+            {workflow.shortCode && (
+              <button
+                type="button"
+                title="Copy 6-digit code for API (workflow_code)"
+                onClick={() => void navigator.clipboard.writeText(workflow.shortCode!)}
+                className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-gray-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-800"
+              >
+                {workflow.shortCode}
+                <Copy size={10} className="opacity-60" />
+              </button>
+            )}
           </div>
           <h3 className="font-semibold text-gray-900 mt-1.5 text-sm">{workflow.name}</h3>
           <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{workflow.description}</p>

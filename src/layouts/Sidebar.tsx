@@ -5,7 +5,6 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Shield,
   GitBranch,
   ScrollText,
   Landmark,
@@ -18,6 +17,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { useSession } from '../hooks/useSession';
+import { AfriTrustMark } from '../components/ui/afritrust-mark';
 import { cn } from '../lib/utils';
 import type { Capability } from '../lib/capabilities';
 
@@ -150,8 +150,8 @@ export function Sidebar() {
         )}
         title="AfriTrust home"
       >
-        <div className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-950/50 ring-1 ring-white/10 shrink-0">
-          <Shield className="w-[18px] h-[18px] text-white" strokeWidth={2.5} />
+        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#0f0d1a] shadow-lg shadow-indigo-950/50 ring-1 ring-white/10">
+          <AfriTrustMark className="h-[140%] w-[140%]" />
         </div>
         {!sidebarCollapsed && (
           <div className="min-w-0 animate-fade-in">

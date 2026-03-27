@@ -588,6 +588,15 @@ export default function WorkflowBuilder() {
             {envLabel}
           </span>
           <span className="text-sm text-gray-400">v{workflow.version}</span>
+          {workflow.shortCode && (
+            <span
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-1.5 py-0.5"
+              title="6-digit code for API (workflow_code)"
+            >
+              <span className="font-mono text-[11px] font-semibold text-gray-800">{workflow.shortCode}</span>
+              <CopyButton value={workflow.shortCode} className="!px-1.5 !py-0.5 !text-[10px]" />
+            </span>
+          )}
           {syncGraph.isPending && (
             <span className="text-[10px] font-medium uppercase tracking-wider text-indigo-500">Saving graph…</span>
           )}
@@ -705,6 +714,15 @@ export default function WorkflowBuilder() {
                 <span>Version</span>
                 <span className="text-gray-700">{workflow.version}</span>
               </div>
+              {workflow.shortCode && (
+                <div className="flex justify-between items-center gap-2">
+                  <span>Workflow code</span>
+                  <span className="inline-flex items-center gap-1 shrink-0">
+                    <span className="font-mono text-gray-700">{workflow.shortCode}</span>
+                    <CopyButton value={workflow.shortCode} className="!py-0.5 !px-1.5 !text-[10px]" />
+                  </span>
+                </div>
+              )}
               {workflow.clonedFromId && (
                 <div className="flex justify-between">
                   <span>Cloned from</span>

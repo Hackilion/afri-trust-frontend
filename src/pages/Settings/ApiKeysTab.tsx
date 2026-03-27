@@ -8,15 +8,21 @@ import { formatRelativeTime } from '../../lib/formatters';
 import { cn } from '../../lib/utils';
 import type { ApiKeyEnvironment, ApiKeyPermission } from '../../types';
 
-function CopyButton({ text }: { text: string }) {
+function CopyIconButton({ text, title }: { text: string; title?: string }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
-    navigator.clipboard.writeText(text);
+    void navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
   return (
-    <button onClick={copy} className="text-gray-400 hover:text-indigo-600 transition-colors p-1">
+    <button
+      type="button"
+      onClick={copy}
+      title={title}
+      aria-label={title ?? 'Copy to clipboard'}
+      className="text-gray-400 hover:text-indigo-600 transition-colors p-1 shrink-0"
+    >
       {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
     </button>
   );
@@ -31,6 +37,8 @@ export function ApiKeysTab() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ name: '', env: 'test' as ApiKeyEnvironment, permissions: ['applicants:read'] as ApiKeyPermission[] });
+  /** Full secrets we only learn at create time — keep in memory so the table copy matches the green banner. */
+  const [fullKeyById, setFullKeyById] = useState<Record<string, string>>({});
 
   const PERMS: { value: ApiKeyPermission; label: string }[] = [
     { value: 'applicants:read', label: 'Read applicants' },
@@ -49,7 +57,10 @@ export function ApiKeysTab() {
   const handleCreate = () => {
     if (!form.name.trim() || form.permissions.length === 0) return;
     createKey([form.name.trim(), form.env, form.permissions], {
-      onSuccess: () => setShowCreate(false),
+      onSuccess: data => {
+        setFullKeyById(prev => ({ ...prev, [data.key.id]: data.fullKey }));
+        setShowCreate(false);
+      },
     });
   };
 
@@ -90,7 +101,7 @@ export function ApiKeysTab() {
             <p className="text-[12px] font-semibold text-emerald-800 mb-1">Copy this key now — it won't be shown again</p>
             <code className="text-[13px] font-mono text-emerald-900">{newKeyData.fullKey}</code>
           </div>
-          <CopyButton text={newKeyData.fullKey} />
+          <CopyIconButton text={newKeyData.fullKey} title="Copy full API key" />
         </div>
       )}
 
@@ -176,13 +187,23 @@ export function ApiKeysTab() {
                 </td>
               </tr>
             ) : (
-              keys.map(key => (
+              keys.map(key => {
+                const fullSecret =
+                  fullKeyById[key.id] ??
+                  (newKeyData?.key.id === key.id ? newKeyData.fullKey : undefined);
+                return (
               <tr key={key.id} className="hover:bg-gray-50/50">
                 <td className="px-4 py-3.5">
                   <p className="text-[13px] font-semibold text-gray-800">{key.name}</p>
-                  <code className="text-[11px] text-gray-400 font-mono flex items-center gap-1">
-                    {key.prefix}…
-                    <CopyButton text={key.prefix} />
+                  <code className="text-[11px] text-gray-400 font-mono flex items-center gap-1 min-w-0 max-w-md">
+                    <span className="truncate">{key.prefix}</span>
+                    <span className="shrink-0">…</span>
+                    {fullSecret ? (
+                      <CopyIconButton
+                        text={fullSecret}
+                        title="Copy full API key (only available in this session after creation)"
+                      />
+                    ) : null}
                   </code>
                 </td>
                 <td className="px-4 py-3.5">
@@ -213,10 +234,15 @@ export function ApiKeysTab() {
                   )}
                 </td>
               </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>
+        <p className="px-4 py-3 text-[11px] text-gray-500 border-t border-gray-50 bg-gray-50/30">
+          Only a short prefix is stored for each key. The full secret is shown once in the green banner when you create
+          a key; use the copy icon on that key’s row during this session to copy the complete value.
+        </p>
       </div>
     </div>
   );

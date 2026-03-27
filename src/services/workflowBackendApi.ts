@@ -104,6 +104,7 @@ export type BackendWorkflowListItem = {
   description: string | null;
   status: string;
   version: number;
+  short_code: string;
   step_count: number;
   published_at: string | null;
   created_at: string;
@@ -116,6 +117,7 @@ export type BackendWorkflowDetail = {
   description: string | null;
   status: string;
   version: number;
+  short_code: string;
   published_at: string | null;
   created_at: string;
   updated_at: string;

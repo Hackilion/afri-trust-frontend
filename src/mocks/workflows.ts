@@ -118,6 +118,7 @@ export let mockTierProfiles: TierProfile[] = [
 export let mockWorkflows: Workflow[] = [
   {
     id: 'WF-001',
+    shortCode: '100001',
     orgId: 'ORG-001',
     name: 'Retail Consumer Onboarding',
     description: 'Standard two-step flow for consumer account opening. Published and in production.',
@@ -154,6 +155,7 @@ export let mockWorkflows: Workflow[] = [
   },
   {
     id: 'WF-002',
+    shortCode: '100002',
     orgId: 'ORG-001',
     name: 'High-Value Account (EDD)',
     description: 'Full three-step enhanced due diligence for high-net-worth and corporate clients.',
@@ -202,6 +204,7 @@ export let mockWorkflows: Workflow[] = [
   },
   {
     id: 'WF-003',
+    shortCode: '100003',
     orgId: 'ORG-001',
     name: 'Biometric Premium Onboarding',
     description: 'Experimental biometric-first flow for premium tier. Draft in progress.',
@@ -248,6 +251,7 @@ export let mockWorkflows: Workflow[] = [
   },
   {
     id: 'WF-004',
+    shortCode: '100004',
     orgId: 'ORG-001',
     name: 'Legacy Basic Flow',
     description: 'Old single-step flow. Archived after retail onboarding was launched.',
