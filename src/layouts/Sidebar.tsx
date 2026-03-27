@@ -12,6 +12,8 @@ import {
   Building2,
   UserCog,
   LogOut,
+  BarChart3,
+  Sparkles,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
@@ -19,15 +21,17 @@ import { useSession } from '../hooks/useSession';
 import { cn } from '../lib/utils';
 import type { Capability } from '../lib/capabilities';
 
-type NavDef = { to: string; icon: LucideIcon; label: string; cap: Capability; end?: boolean };
+type NavDef = { to: string; icon: LucideIcon; label: string; cap: Capability; end?: boolean; tour?: string };
 
 const TENANT_NAV: NavDef[] = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', cap: 'nav.dashboard' },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', cap: 'nav.dashboard', tour: 'tour-nav-dashboard' },
+  { to: '/assistant', icon: Sparkles, label: 'Assistant', cap: 'nav.assistant' },
+  { to: '/reports', icon: BarChart3, label: 'Reports', cap: 'nav.dashboard' },
   { to: '/company-onboarding', icon: Landmark, label: 'Company setup', cap: 'nav.company_setup' },
-  { to: '/applicants', icon: Users, label: 'Applicants', cap: 'nav.applicants' },
-  { to: '/workflows', icon: GitBranch, label: 'Workflows', cap: 'nav.workflows' },
+  { to: '/applicants', icon: Users, label: 'Applicants', cap: 'nav.applicants', tour: 'tour-nav-applicants' },
+  { to: '/workflows', icon: GitBranch, label: 'Workflows', cap: 'nav.workflows', tour: 'tour-nav-workflows' },
   { to: '/audit-logs', icon: ScrollText, label: 'Audit log', cap: 'nav.audit' },
-  { to: '/settings', icon: Settings, label: 'Settings', cap: 'nav.settings', end: false },
+  { to: '/settings', icon: Settings, label: 'Settings', cap: 'nav.settings', end: false, tour: 'tour-nav-settings' },
 ];
 
 const PLATFORM_NAV: NavDef[] = [
@@ -45,6 +49,7 @@ function NavButton({
   activeClass,
   idleClass,
   iconActive,
+  tour,
 }: {
   to: string;
   end?: boolean;
@@ -54,12 +59,14 @@ function NavButton({
   activeClass: string;
   idleClass: string;
   iconActive: string;
+  tour?: string;
 }) {
   return (
     <NavLink
       to={to}
       end={end}
       title={collapsed ? label : undefined}
+      {...(tour ? { 'data-tour': tour } : {})}
       className={({ isActive }) =>
         cn(
           'group relative flex items-center gap-3 rounded-xl transition-all duration-200',
@@ -118,6 +125,7 @@ export function Sidebar() {
 
   return (
     <aside
+      data-tour="sidebar"
       className={cn(
         'flex flex-col h-screen shrink-0 relative transition-[width] duration-300 ease-out',
         'bg-[#09090f] border-r border-white/[0.06]',
@@ -155,9 +163,13 @@ export function Sidebar() {
         )}
       </Link>
 
-      <nav className="relative z-[1] flex-1 px-2 py-4 space-y-5 overflow-y-auto overflow-x-hidden">
+      <nav
+        data-tour="sidebar-nav"
+        className="relative z-[1] flex-1 px-2 py-4 space-y-5 overflow-y-auto overflow-x-hidden"
+      >
         {showPlatformBlock && (
           <div
+            data-tour="sidebar-platform"
             className={cn(
               'rounded-2xl border border-violet-500/15 bg-violet-950/[0.25] p-1.5',
               sidebarCollapsed && 'mx-0.5'
@@ -169,7 +181,7 @@ export function Sidebar() {
               </p>
             )}
             <div className="space-y-0.5">
-              {platformItems.map(({ to, icon, label, end }) => (
+              {platformItems.map(({ to, icon, label, end, tour }) => (
                 <NavButton
                   key={to}
                   to={to}
@@ -177,6 +189,7 @@ export function Sidebar() {
                   icon={icon}
                   label={label}
                   collapsed={sidebarCollapsed}
+                  tour={tour}
                   activeClass="bg-violet-500/15 text-violet-50 shadow-sm ring-1 ring-violet-400/20"
                   idleClass="text-[#8b8bb0] hover:text-violet-100/90 hover:bg-violet-500/10"
                   iconActive="bg-violet-500/25 text-violet-200"
@@ -187,7 +200,7 @@ export function Sidebar() {
         )}
 
         {showTenantBlock && (
-          <div>
+          <div data-tour="sidebar-workspace">
             {!sidebarCollapsed && (
               <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-[#4a4a68]">
                 {isSuperAdmin ? 'Workspace' : 'Product'}
@@ -200,7 +213,7 @@ export function Sidebar() {
               )}
             >
               <div className="space-y-0.5">
-                {tenantItems.map(({ to, icon, label, end }) => (
+                {tenantItems.map(({ to, icon, label, end, tour }) => (
                   <NavButton
                     key={to}
                     to={to}
@@ -208,6 +221,7 @@ export function Sidebar() {
                     icon={icon}
                     label={label}
                     collapsed={sidebarCollapsed}
+                    tour={tour}
                     activeClass="bg-indigo-500/12 text-white shadow-sm ring-1 ring-indigo-400/15"
                     idleClass="text-[#8b8ba8] hover:text-[#d4d4e8] hover:bg-white/[0.04]"
                     iconActive="bg-indigo-500/20 text-indigo-200"
@@ -230,6 +244,7 @@ export function Sidebar() {
 
       <button
         type="button"
+        data-tour="sidebar-toggle"
         onClick={toggleSidebar}
         className="absolute z-20 -right-3 top-[5.25rem] w-7 h-7 rounded-full bg-[#14141f] border border-white/10 flex items-center justify-center text-[#8b8bb0] hover:text-white hover:border-indigo-500/30 hover:bg-[#1a1a28] transition-all shadow-md"
         aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}

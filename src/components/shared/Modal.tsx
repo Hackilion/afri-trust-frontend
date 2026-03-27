@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useId, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -20,48 +21,73 @@ const sizeMap = {
 };
 
 export function Modal({ open, onClose, title, description, size = 'md', children, footer }: ModalProps) {
+  const titleId = useId();
+  const descriptionId = useId();
+
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handler);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || typeof document === 'undefined') return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
+  return createPortal(
+    <div
+      className={cn(
+        'fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto overscroll-contain',
+        'px-3 py-4 sm:px-4 sm:py-6',
+        'pt-[max(1rem,env(safe-area-inset-top,0px))] pb-[max(1rem,env(safe-area-inset-bottom,0px))]'
+      )}
+    >
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" aria-hidden onClick={onClose} />
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      {/* Panel */}
-      <div className={cn('relative w-full bg-white rounded-xl shadow-2xl flex flex-col max-h-[90vh]', sizeMap[size])}>
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-4 border-b border-gray-100">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-            {description && <p className="mt-0.5 text-sm text-gray-500">{description}</p>}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
+        className={cn(
+          'relative z-10 my-auto flex w-full min-h-0 flex-col rounded-xl bg-white shadow-2xl',
+          'max-h-[min(90vh,calc(100dvh-2rem))]',
+          sizeMap[size]
+        )}
+      >
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-gray-100 px-4 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4">
+          <div className="min-w-0">
+            <h2 id={titleId} className="text-base font-semibold text-gray-900 sm:text-lg">
+              {title}
+            </h2>
+            {description && (
+              <p id={descriptionId} className="mt-0.5 text-xs text-gray-500 sm:text-sm">
+                {description}
+              </p>
+            )}
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="flex-shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            className="flex-shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
           >
-            <X size={18} />
+            <span className="sr-only">Close</span>
+            <X size={18} aria-hidden />
           </button>
         </div>
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          {children}
-        </div>
-        {/* Footer */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">{children}</div>
         {footer && (
-          <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3">
+          <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:px-6 sm:py-4">
             {footer}
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

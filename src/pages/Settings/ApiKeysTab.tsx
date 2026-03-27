@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Copy, Check, Sparkles } from 'lucide-react';
 import { useApiKeys, useCreateApiKey, useRevokeApiKey } from '../../hooks/useSettings';
+import { useSession } from '../../hooks/useSession';
+import { isLiveApi } from '../../lib/apiConfig';
 import { formatRelativeTime } from '../../lib/formatters';
 import { cn } from '../../lib/utils';
 import type { ApiKeyEnvironment, ApiKeyPermission } from '../../types';
@@ -21,6 +23,8 @@ function CopyButton({ text }: { text: string }) {
 }
 
 export function ApiKeysTab() {
+  const { workspaceOrgId } = useSession();
+  const live = isLiveApi();
   const { data: keys, isLoading } = useApiKeys();
   const { mutate: createKey, data: newKeyData, isPending: creating } = useCreateApiKey();
   const { mutate: revokeKey, isPending: revoking } = useRevokeApiKey();
@@ -43,10 +47,20 @@ export function ApiKeysTab() {
   };
 
   const handleCreate = () => {
-    createKey([form.name, form.env, form.permissions], {
+    if (!form.name.trim() || form.permissions.length === 0) return;
+    createKey([form.name.trim(), form.env, form.permissions], {
       onSuccess: () => setShowCreate(false),
     });
   };
+
+  if (live && !workspaceOrgId) {
+    return (
+      <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-6 text-center text-sm text-amber-900">
+        <p className="font-semibold">Select a workspace</p>
+        <p className="mt-2 text-amber-800/90">API keys are tied to an organisation. Choose a tenant in the header to list and create keys.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -94,20 +108,27 @@ export function ApiKeysTab() {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-indigo-200"
             />
           </div>
-          <div>
-            <label className="text-[12px] font-medium text-gray-600 block mb-2">Environment</label>
-            <div className="flex gap-2">
-              {(['test', 'live'] as ApiKeyEnvironment[]).map(env => (
-                <button
-                  key={env}
-                  onClick={() => setForm(f => ({ ...f, env }))}
-                  className={cn('px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-all capitalize', form.env === env ? 'bg-indigo-600 text-white border-indigo-600' : 'text-gray-600 border-gray-200 hover:border-indigo-300')}
-                >
-                  {env}
-                </button>
-              ))}
+          {!live ? (
+            <div>
+              <label className="text-[12px] font-medium text-gray-600 block mb-2">Environment</label>
+              <div className="flex gap-2">
+                {(['test', 'live'] as ApiKeyEnvironment[]).map(env => (
+                  <button
+                    key={env}
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, env }))}
+                    className={cn('px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-all capitalize', form.env === env ? 'bg-indigo-600 text-white border-indigo-600' : 'text-gray-600 border-gray-200 hover:border-indigo-300')}
+                  >
+                    {env}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <p className="text-[12px] text-gray-500 leading-relaxed">
+              Keys are created for your signed-in organisation. The backend stores <strong>scopes</strong> only (shown as permissions below); the test/live toggle applies to mock mode.
+            </p>
+          )}
           <div>
             <label className="text-[12px] font-medium text-gray-600 block mb-2">Permissions</label>
             <div className="flex flex-wrap gap-2">
@@ -123,8 +144,13 @@ export function ApiKeysTab() {
             </div>
           </div>
           <div className="flex gap-2 pt-2">
-            <button onClick={() => setShowCreate(false)} className="px-3 py-2 rounded-lg border border-gray-200 text-[13px] text-gray-600 hover:bg-gray-50 transition-colors">Cancel</button>
-            <button onClick={handleCreate} disabled={!form.name || creating} className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-[13px] font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+            <button type="button" onClick={() => setShowCreate(false)} className="px-3 py-2 rounded-lg border border-gray-200 text-[13px] text-gray-600 hover:bg-gray-50 transition-colors">Cancel</button>
+            <button
+              type="button"
+              onClick={handleCreate}
+              disabled={!form.name.trim() || form.permissions.length === 0 || creating}
+              className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-[13px] font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            >
               {creating ? 'Creating...' : 'Create Key'}
             </button>
           </div>
@@ -143,12 +169,19 @@ export function ApiKeysTab() {
           <tbody className="divide-y divide-gray-50">
             {isLoading ? (
               <tr><td colSpan={6} className="px-4 py-8 text-center text-[13px] text-gray-400">Loading...</td></tr>
-            ) : keys?.map(key => (
+            ) : !keys?.length ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-[13px] text-gray-500">
+                  No API keys yet. Create one to call AfriTrust from your servers with <code className="rounded bg-gray-100 px-1 font-mono text-[12px]">X-API-Key</code>.
+                </td>
+              </tr>
+            ) : (
+              keys.map(key => (
               <tr key={key.id} className="hover:bg-gray-50/50">
                 <td className="px-4 py-3.5">
                   <p className="text-[13px] font-semibold text-gray-800">{key.name}</p>
                   <code className="text-[11px] text-gray-400 font-mono flex items-center gap-1">
-                    {key.prefix}
+                    {key.prefix}…
                     <CopyButton text={key.prefix} />
                   </code>
                 </td>
@@ -159,9 +192,13 @@ export function ApiKeysTab() {
                 </td>
                 <td className="px-4 py-3.5">
                   <div className="flex flex-wrap gap-1">
-                    {key.permissions.map(p => (
-                      <span key={p} className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-medium">{p}</span>
-                    ))}
+                    {key.permissions.length ? (
+                      key.permissions.map(p => (
+                        <span key={p} className="text-[10px] bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-medium">{p}</span>
+                      ))
+                    ) : (
+                      <span className="text-[12px] text-gray-400">—</span>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3.5 text-[12px] text-gray-500">{key.lastUsedAt ? formatRelativeTime(key.lastUsedAt) : '—'}</td>
@@ -176,7 +213,8 @@ export function ApiKeysTab() {
                   )}
                 </td>
               </tr>
-            ))}
+              ))
+            )}
           </tbody>
         </table>
       </div>

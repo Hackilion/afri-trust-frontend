@@ -3,7 +3,7 @@ import { AppLayout } from './AppLayout';
 import { PublicLayout } from './PublicLayout';
 import { useSessionStore } from '../store/sessionStore';
 
-const PUBLIC_PATHS = new Set(['/', '/login', '/register']);
+const PUBLIC_PATHS = new Set(['/', '/login', '/register', '/verify-email', '/accept-invite']);
 
 export function AppShell() {
   const { pathname } = useLocation();

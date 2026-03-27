@@ -53,33 +53,30 @@ export function buildIntegrationDemoSequence(
       kind: 'success',
       title: 'Create verification session',
       detail:
-        'Typical first call when a customer taps “Verify identity” in your app. AfriTrust returns a hosted flow URL and expiry.',
+        'POST with an existing applicant UUID and a published workflow UUID. The API returns session id, status, and step progress; drive the flow with attributes, documents, and biometrics endpoints.',
       request: {
         method: 'POST',
-        url: `${baseUrl}/verification/sessions`,
+        url: `${baseUrl}/verifications`,
         headers: {
           Authorization: 'Bearer aft_test_sk_••••••••••••7n2p',
           'Content-Type': 'application/json',
-          'Idempotency-Key': `idem_${rid()}`,
         },
         body: {
-          organization_id: organizationId,
-          tier: 'standard',
-          applicant: {
-            external_id: 'cust_8821',
-            email: 'customer@example.com',
-            country: 'GH',
-          },
-          success_redirect_url: 'https://yourapp.com/kyc/complete',
-          cancel_redirect_url: 'https://yourapp.com/kyc/cancel',
+          applicant_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+          workflow_id: '11111111-2222-3333-4444-555555555555',
         },
       },
       response: {
         id: sessionId,
-        status: 'open',
-        portal_url: `https://verify.afritrust.io/session/${sessionId}`,
-        expires_at: new Date(Date.now() + 3600000).toISOString(),
-        organization_id: organizationId,
+        org_id: organizationId,
+        applicant_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        workflow_id: '11111111-2222-3333-4444-555555555555',
+        workflow_version: 1,
+        current_step_order: 1,
+        status: 'created',
+        result: 'pending',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       },
     },
     {
@@ -115,7 +112,7 @@ export function buildIntegrationDemoSequence(
     {
       kind: 'success',
       title: 'Fetch applicant status',
-      detail: 'After the user finishes the flow, poll or wait for applicant.verified via webhook.',
+      detail: 'After the user finishes the flow, poll or wait for verification.approved via webhook.',
       request: {
         method: 'GET',
         url: `${baseUrl}/applicants/${applicantId}`,
@@ -134,27 +131,19 @@ export function buildIntegrationDemoSequence(
     },
     {
       kind: 'webhook',
-      title: 'Webhook: applicant.verified',
-      detail: 'Use this to unlock accounts, issue wallets, or continue onboarding in your product.',
+      title: 'Webhook: verification.approved',
+      detail: 'AfriTrust POSTs JSON with X-AfriTrust-Event and X-AfriTrust-Signature (HMAC-SHA256 of the body).',
       webhookPayload: {
-        id: `evt_${rid()}`,
-        type: 'applicant.verified',
-        api_version: '2026-03-01',
-        created_at: new Date().toISOString(),
-        data: {
-          object: 'applicant',
-          id: applicantId,
-          organization_id: organizationId,
-          status: 'verified',
-          external_reference: 'cust_8821',
-        },
+        session_id: `ses_${rid().slice(0, 12)}`,
+        applicant_id: applicantId,
       },
       request: {
         method: 'POST',
         url: 'https://api.yourapp.com/webhooks/afritrust',
         headers: {
           'Content-Type': 'application/json',
-          'X-AfriTrust-Signature': 't=1730000001,v1=mock_hmac_signature_for_demo',
+          'X-AfriTrust-Event': 'verification.approved',
+          'X-AfriTrust-Signature': 'hex_hmac_sha256_of_raw_body',
         },
       },
       response: { received: true, http_status_from_your_server: 200 },
@@ -162,16 +151,12 @@ export function buildIntegrationDemoSequence(
   ];
 }
 
-export function sampleCurlCreateSession(organizationId: string): string {
-  return `curl -sS -X POST 'https://api.afritrust.io/v1/verification/sessions' \\
+export function sampleCurlCreateSession(_organizationId: string): string {
+  return `curl -sS -X POST 'https://api.afritrust.io/v1/verifications' \\
   -H 'Authorization: Bearer YOUR_TEST_SECRET_KEY' \\
   -H 'Content-Type: application/json' \\
-  -H 'Idempotency-Key: $(uuidgen)' \\
   -d '{
-    "organization_id": "${organizationId}",
-    "tier": "standard",
-    "applicant": { "external_id": "your_customer_id", "email": "user@example.com", "country": "NG" },
-    "success_redirect_url": "https://yourapp.com/done",
-    "cancel_redirect_url": "https://yourapp.com/cancel"
+    "applicant_id": "YOUR_APPLICANT_UUID",
+    "workflow_id": "YOUR_PUBLISHED_WORKFLOW_UUID"
   }'`;
 }

@@ -48,9 +48,12 @@ export type WorkflowJourney = {
 
 const CHECK_LABELS: Record<CheckCatalogueId, string> = {
   liveness: 'Liveness',
+  video_selfie: 'Video liveness',
   face_match: 'Face match',
+  selfie_capture: 'Selfie capture',
   document_authenticity: 'Document authenticity',
   document_expiry: 'Document expiry',
+  registry_document: 'Registry document',
   watchlist: 'Watchlist',
   pep: 'PEP',
   adverse_media: 'Adverse media',

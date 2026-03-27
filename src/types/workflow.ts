@@ -13,7 +13,13 @@ export type CheckCatalogueId =
   | 'phone_verification'
   | 'email_verification'
   | 'biometric_dedup'
-  | 'database_lookup';
+  | 'database_lookup'
+  /** Maps to backend `selfie` — portrait capture for identity matching. */
+  | 'selfie_capture'
+  /** Maps to backend `liveness` — guided / video-style liveness variant in UI. */
+  | 'video_selfie'
+  /** Maps to backend `government_id` — company registry / KYB document extract. */
+  | 'registry_document';
 
 export type CheckCategory = 'biometric' | 'document' | 'aml' | 'contact' | 'database';
 

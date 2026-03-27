@@ -22,22 +22,27 @@ export interface ApiKey {
   createdBy: string;
 }
 
+/** Event names match `POST /v1/webhooks` and orchestrator / applicants API. */
 export type WebhookEvent =
   | 'applicant.created'
-  | 'applicant.verified'
-  | 'applicant.rejected'
-  | 'applicant.needs_review'
-  | 'check.completed';
+  | 'applicant.updated'
+  | 'applicant.deleted'
+  | 'verification.created'
+  | 'verification.approved'
+  | 'verification.rejected'
+  | 'verification.step_completed';
 
 export interface Webhook {
   id: string;
   url: string;
   events: WebhookEvent[];
   status: 'active' | 'disabled';
-  secret: string;
+  /** Present for mock UI only, or immediately after live create (copy once). */
+  secret?: string;
   failureCount: number;
   lastTriggeredAt?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export type TeamRole = 'owner' | 'admin' | 'reviewer' | 'viewer';

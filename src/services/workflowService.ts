@@ -4,6 +4,14 @@ import {
   mockSessions,
   CHECK_CATALOGUE,
 } from '../mocks/workflows';
+import { isLiveApi } from '../lib/apiConfig';
+import {
+  backendGetKycSummary,
+  backendGetVerificationDetail,
+  mapKycSessionsToVerificationSessions,
+} from './backendApplicantsService';
+import * as liveWf from './workflowLive';
+import { resolveTierProfileForLiveStep } from '../lib/workflowTierResolution';
 import {
   applyTopologicalOrder,
   buildLinearEdges,
@@ -29,6 +37,7 @@ const delay = (ms = 400) => new Promise(res => setTimeout(res, ms));
 // ── Check Catalogue ───────────────────────────────────────────────────────────
 
 export async function getCheckCatalogue() {
+  if (isLiveApi()) return liveWf.liveGetCheckCatalogue();
   await delay(200);
   return [...CHECK_CATALOGUE];
 }
@@ -36,11 +45,13 @@ export async function getCheckCatalogue() {
 // ── Tier Profiles ─────────────────────────────────────────────────────────────
 
 export async function getTierProfiles(includeArchived = false) {
+  if (isLiveApi()) return liveWf.liveGetTierProfiles(includeArchived);
   await delay();
   return mockTierProfiles.filter(t => includeArchived || !t.isArchived);
 }
 
 export async function getTierProfileById(id: string) {
+  if (isLiveApi()) return liveWf.liveGetTierProfileById(id);
   await delay();
   return mockTierProfiles.find(t => t.id === id) ?? null;
 }
@@ -48,6 +59,7 @@ export async function getTierProfileById(id: string) {
 export async function createTierProfile(
   data: Pick<TierProfile, 'name' | 'description' | 'requiredChecks' | 'requiredAttributes' | 'acceptedDocumentTypes' | 'settings'>
 ) {
+  if (isLiveApi()) return liveWf.liveCreateTierProfile(data);
   await delay();
   const next: TierProfile = {
     ...data,
@@ -66,6 +78,7 @@ export async function updateTierProfile(
   id: string,
   data: Partial<Pick<TierProfile, 'name' | 'description' | 'requiredChecks' | 'requiredAttributes' | 'acceptedDocumentTypes' | 'settings'>>
 ) {
+  if (isLiveApi()) return liveWf.liveUpdateTierProfile(id, data);
   await delay();
   const idx = mockTierProfiles.findIndex(t => t.id === id);
   if (idx === -1) throw new Error('Tier profile not found');
@@ -74,6 +87,7 @@ export async function updateTierProfile(
 }
 
 export async function archiveTierProfile(id: string) {
+  if (isLiveApi()) return liveWf.liveArchiveTierProfile(id);
   await delay();
   const idx = mockTierProfiles.findIndex(t => t.id === id);
   if (idx === -1) throw new Error('Tier profile not found');
@@ -87,6 +101,7 @@ export async function getWorkflows(
   status?: WorkflowStatus,
   environment?: WorkflowEnvironment | 'all'
 ) {
+  if (isLiveApi()) return liveWf.liveGetWorkflows(status, environment);
   await delay();
   let list = [...mockWorkflows];
   if (status) list = list.filter(w => w.status === status);
@@ -97,6 +112,7 @@ export async function getWorkflows(
 }
 
 export async function getWorkflowById(id: string) {
+  if (isLiveApi()) return liveWf.liveGetWorkflowById(id);
   await delay();
   const w = mockWorkflows.find(x => x.id === id) ?? null;
   if (!w) return null;
@@ -110,6 +126,7 @@ export async function createWorkflow(
   data: Pick<Workflow, 'name' | 'description'> &
     Partial<Pick<Workflow, 'environment' | 'tags' | 'industryVertical'>>
 ) {
+  if (isLiveApi()) return liveWf.liveCreateWorkflow(data);
   await delay();
   const tags = data.tags?.map(t => t.trim()).filter(Boolean);
   const next: Workflow = {
@@ -137,6 +154,7 @@ export async function updateWorkflow(
     Pick<Workflow, 'name' | 'description' | 'steps' | 'edges' | 'environment' | 'tags' | 'industryVertical'>
   >
 ) {
+  if (isLiveApi()) return liveWf.liveUpdateWorkflow(id, data);
   await delay();
   const idx = mockWorkflows.findIndex(w => w.id === id);
   if (idx === -1) throw new Error('Workflow not found');
@@ -154,6 +172,21 @@ export async function updateWorkflow(
 }
 
 export async function publishWorkflow(id: string) {
+  if (isLiveApi()) {
+    const w = await liveWf.liveGetWorkflowById(id);
+    if (!w) throw new Error('Workflow not found');
+    const tierList = await liveWf.liveGetTierProfiles(true);
+    const tierIds = new Set(tierList.map(t => t.id));
+    const validation = validateWorkflow(w, {
+      strictIntegrationKeys: true,
+      tierProfileIds: tierIds,
+      checkCatalogue: CHECK_CATALOGUE,
+    });
+    if (!validation.canPublish) {
+      throw new Error(validation.errors.map(e => e.message).join(' · '));
+    }
+    return liveWf.livePublishWorkflow(id);
+  }
   await delay();
   const idx = mockWorkflows.findIndex(w => w.id === id);
   if (idx === -1) throw new Error('Workflow not found');
@@ -181,6 +214,7 @@ export async function publishWorkflow(id: string) {
 }
 
 export async function archiveWorkflow(id: string) {
+  if (isLiveApi()) return liveWf.liveArchiveWorkflow(id);
   await delay();
   const idx = mockWorkflows.findIndex(w => w.id === id);
   if (idx === -1) throw new Error('Workflow not found');
@@ -194,6 +228,7 @@ export async function archiveWorkflow(id: string) {
 }
 
 export async function cloneWorkflow(id: string, newName: string) {
+  if (isLiveApi()) return liveWf.liveCloneWorkflow(id, newName);
   await delay();
   const source = mockWorkflows.find(w => w.id === id);
   if (!source) throw new Error('Workflow not found');
@@ -218,6 +253,7 @@ export async function cloneWorkflow(id: string, newName: string) {
 
 /** Clone as a new draft sandbox copy for safe experimentation. */
 export async function cloneWorkflowToSandbox(sourceId: string) {
+  if (isLiveApi()) return liveWf.liveCloneWorkflowToSandbox(sourceId);
   await delay();
   const source = mockWorkflows.find(w => w.id === sourceId);
   if (!source) throw new Error('Workflow not found');
@@ -243,6 +279,11 @@ export async function cloneWorkflowToSandbox(sourceId: string) {
 }
 
 export async function addWorkflowStep(id: string, step: WorkflowStepCreate): Promise<Workflow> {
+  if (isLiveApi()) {
+    const tiers = await liveWf.liveGetTierProfiles(true);
+    const resolved = resolveTierProfileForLiveStep(step, tiers);
+    return liveWf.liveAddWorkflowStep(id, resolved);
+  }
   await delay();
   const idx = mockWorkflows.findIndex(w => w.id === id);
   if (idx === -1) throw new Error('Workflow not found');
@@ -276,6 +317,7 @@ export async function addWorkflowStep(id: string, step: WorkflowStepCreate): Pro
 }
 
 export async function removeWorkflowStep(workflowId: string, nodeId: string) {
+  if (isLiveApi()) return liveWf.liveRemoveWorkflowStep(workflowId, nodeId);
   await delay();
   const idx = mockWorkflows.findIndex(w => w.id === workflowId);
   if (idx === -1) throw new Error('Workflow not found');
@@ -309,6 +351,7 @@ export async function syncWorkflowGraph(
   workflowId: string,
   payload: { steps: WorkflowStep[]; edges: WorkflowGraphEdge[] }
 ) {
+  if (isLiveApi()) return liveWf.liveSyncWorkflowGraph(workflowId, payload);
   await delay();
   const idx = mockWorkflows.findIndex(w => w.id === workflowId);
   if (idx === -1) throw new Error('Workflow not found');
@@ -339,20 +382,33 @@ export async function dryRunWorkflow(id: string): Promise<DryRunResult | null> {
 
 // ── Verification Sessions ─────────────────────────────────────────────────────
 
-export async function getSessionsByApplicant(applicantId: string) {
+export async function getSessionsByApplicant(applicantId: string, workspaceOrgId: string | null) {
+  if (isLiveApi() && workspaceOrgId) {
+    const kyc = await backendGetKycSummary(applicantId);
+    return mapKycSessionsToVerificationSessions(applicantId, workspaceOrgId, kyc);
+  }
   await delay();
   return mockSessions.filter(s => s.applicantId === applicantId);
 }
 
 export async function getSessionById(id: string) {
+  if (isLiveApi()) {
+    return backendGetVerificationDetail(id);
+  }
   await delay();
   return mockSessions.find(s => s.id === id) ?? null;
 }
 
 export async function getStepChecks(sessionId: string, stepOrder: number) {
+  if (isLiveApi()) {
+    const session = await backendGetVerificationDetail(sessionId);
+    if (!session) return [];
+    const step = session.steps.find(s => s.order === stepOrder);
+    return step?.checks ?? [];
+  }
   await delay(200);
   const session = mockSessions.find(s => s.id === sessionId);
   if (!session) return [];
-  const step = session.steps.find(s => s.order === stepOrder);
-  return step?.checks ?? [];
+  const st = session.steps.find(s => s.order === stepOrder);
+  return st?.checks ?? [];
 }

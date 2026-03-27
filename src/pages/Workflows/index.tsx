@@ -247,7 +247,7 @@ export default function Workflows() {
   );
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" data-tour="workflow-list">
       <PageHeader
         title="Workflows"
         subtitle="Design and manage the verification journeys for your applicants."

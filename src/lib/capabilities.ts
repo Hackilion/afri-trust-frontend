@@ -3,6 +3,7 @@ import type { WorkspaceUser } from '../types/rbac';
 
 export type Capability =
   | 'nav.dashboard'
+  | 'nav.assistant'
   | 'nav.company_setup'
   | 'nav.applicants'
   | 'nav.workflows'
@@ -21,9 +22,12 @@ export type Capability =
   | 'settings.team'
   | 'settings.team.invite'
   | 'settings.team.remove'
+  | 'settings.appearance'
+  | 'settings.appearance.edit'
   | 'settings.tier_profiles'
   | 'settings.check_catalogue'
-  | 'settings.integration_demo';
+  | 'settings.integration_demo'
+  | 'settings.consent_identity';
 
 const TENANT_READ_ROLES: TeamRole[] = ['owner', 'admin', 'reviewer', 'viewer'];
 const TENANT_REVIEW_ROLES: TeamRole[] = ['owner', 'admin', 'reviewer'];
@@ -62,6 +66,9 @@ export function getCapabilities(user: WorkspaceUser | null, impersonatedOrgId: s
 
   return {
     'nav.dashboard': Boolean(user && (inTenant || isSuper)),
+    'nav.assistant': c(
+      Boolean(user) && (Boolean(isSuper) || (inTenant && roleAllows(role, TENANT_READ_ROLES)))
+    ),
     'nav.company_setup': c(inTenant && roleAllows(role, TENANT_ADMIN_ROLES)),
     'nav.applicants': c(inTenant && roleAllows(role, TENANT_READ_ROLES)),
     'nav.workflows': c(inTenant && roleAllows(role, TENANT_READ_ROLES)),
@@ -82,9 +89,12 @@ export function getCapabilities(user: WorkspaceUser | null, impersonatedOrgId: s
     'settings.team': c(inTenant && roleAllows(role, TENANT_READ_ROLES)),
     'settings.team.invite': c(inTenant && roleAllows(role, TENANT_ADMIN_ROLES)),
     'settings.team.remove': c(inTenant && roleAllows(role, TENANT_ADMIN_ROLES)),
+    'settings.appearance': c(inTenant && roleAllows(role, TENANT_READ_ROLES)),
+    'settings.appearance.edit': c(inTenant && roleAllows(role, TENANT_ADMIN_ROLES)),
     'settings.tier_profiles': c(inTenant && roleAllows(role, TENANT_ADMIN_ROLES)),
     'settings.check_catalogue': c(inTenant && roleAllows(role, [...TENANT_ADMIN_ROLES, 'reviewer'])),
     'settings.integration_demo': c(inTenant && roleAllows(role, TENANT_READ_ROLES)),
+    'settings.consent_identity': c(inTenant && roleAllows(role, TENANT_READ_ROLES)),
   };
 }
 

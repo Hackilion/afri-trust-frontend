@@ -23,7 +23,9 @@ import { CompanyManagementPanel } from './CompanyManagementPanel';
 export type CompanyOnboardingProps = {
   /** When set, successful profile submit calls `onRegistrationProfileComplete` instead of the default success screen. */
   registrationFlow?: boolean;
-  onRegistrationProfileComplete?: () => void;
+  onRegistrationProfileComplete?: () => void | Promise<void>;
+  /** With `registrationFlow`, skip the mock onboarding API (live registration runs in a later step). */
+  skipMockSubmit?: boolean;
 };
 
 /** Inputs aligned with registration / public dark UI */
@@ -63,6 +65,7 @@ function IdentityLockedCallout() {
 export default function CompanyOnboarding({
   registrationFlow,
   onRegistrationProfileComplete,
+  skipMockSubmit,
 }: CompanyOnboardingProps = {}) {
   const addToast = useUIStore(s => s.addToast);
   const shellMin = registrationFlow ? 'min-h-[calc(100vh-10rem)]' : 'min-h-[calc(100vh-8rem)]';
@@ -100,11 +103,16 @@ export default function CompanyOnboarding({
   }, [addMarketQuery, draft.primaryCountryCode, draft.additionalCountryCodes]);
 
   const submitMut = useMutation({
-    mutationFn: () => submitCompanyOnboarding(useCompanyOnboardingStore.getState().draft),
-    onSuccess: () => {
+    mutationFn: () => {
+      if (registrationFlow && skipMockSubmit) {
+        return Promise.resolve({ id: 'live-registration' });
+      }
+      return submitCompanyOnboarding(useCompanyOnboardingStore.getState().draft);
+    },
+    onSuccess: async () => {
       if (registrationFlow && onRegistrationProfileComplete) {
         addToast('Company profile complete — opening your workspace.', 'success');
-        onRegistrationProfileComplete();
+        await Promise.resolve(onRegistrationProfileComplete());
         return;
       }
       markSubmitted();

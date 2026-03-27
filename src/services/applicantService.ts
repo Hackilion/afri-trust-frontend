@@ -6,6 +6,16 @@ import {
   inferApplicantKind,
   inferIntakeChannel,
 } from '../lib/applicantPresentation';
+import { isLiveApi } from '../lib/apiConfig';
+import { apiFetch } from '../lib/apiClient';
+import { useSessionStore } from '../store/sessionStore';
+import {
+  backendGetApplicantDetail,
+  backendGetKycSummary,
+  backendListApplicants,
+  backendSubmitReview,
+  buildTimelineFromKycSummary,
+} from './backendApplicantsService';
 import type {
   ApplicantFilters,
   ApplicantListItem,
@@ -17,6 +27,11 @@ import type {
 const delay = (ms = 400) => new Promise(res => setTimeout(res, ms));
 
 export function organizationNameById(organizationId: string): string {
+  if (isLiveApi()) {
+    const u = useSessionStore.getState().user;
+    if (u?.orgId === organizationId && u.orgDisplayName) return u.orgDisplayName;
+    if (u?.orgDisplayName) return u.orgDisplayName;
+  }
   return mockOrganizations.find(o => o.id === organizationId)?.name ?? organizationId;
 }
 
@@ -73,6 +88,32 @@ export async function getApplicants(
   filters: ApplicantFilters,
   workspaceOrgId: string | null
 ): Promise<PaginatedResponse<ApplicantListItem>> {
+  if (isLiveApi() && workspaceOrgId) {
+    const u = useSessionStore.getState().user;
+    const orgName = u?.orgDisplayName ?? organizationNameById(workspaceOrgId);
+    const page = await backendListApplicants(filters, workspaceOrgId, orgName);
+    let { data } = page;
+    if (filters.country?.length) {
+      data = data.filter(
+        a => filters.country!.includes(a.nationality) || filters.country!.includes(a.residenceCountry)
+      );
+    }
+    if (filters.riskLevel?.length) {
+      data = data.filter(a => filters.riskLevel!.includes(a.riskLevel));
+    }
+    if (filters.tier?.length) {
+      data = data.filter(a => filters.tier!.includes(a.tier));
+    }
+    if (filters.applicantKind?.length) {
+      data = data.filter(a => filters.applicantKind!.includes(a.applicantKind));
+    }
+    if (filters.intakeChannel?.length) {
+      data = data.filter(a => filters.intakeChannel!.includes(a.intakeChannel));
+    }
+    data.sort((a, b) => compareListItems(a, b, filters.sortBy, filters.sortDirection));
+    return { ...page, data };
+  }
+
   await delay();
 
   if (!workspaceOrgId) {
@@ -164,7 +205,6 @@ export type ApplicantPipelineStats = {
 };
 
 export async function getApplicantPipelineStats(workspaceOrgId: string | null): Promise<ApplicantPipelineStats> {
-  await delay(120);
   if (!workspaceOrgId) {
     return {
       total: 0,
@@ -176,6 +216,44 @@ export async function getApplicantPipelineStats(workspaceOrgId: string | null): 
       inProgressPct: 0,
     };
   }
+
+  if (isLiveApi()) {
+    const stats = await apiFetch<{
+      total_applicants: number;
+      by_status: Record<string, number>;
+      approval_rate_30d: number | null;
+    }>('/v1/dashboard/stats');
+
+    const byStatus: Record<ApplicantStatus, number> = {
+      verified: 0,
+      pending: 0,
+      rejected: 0,
+      needs_review: 0,
+      incomplete: 0,
+    };
+    for (const [raw, count] of Object.entries(stats.by_status ?? {})) {
+      const k = String(raw).toLowerCase();
+      if (k === 'approved') byStatus.verified += count;
+      else if (k === 'rejected') byStatus.rejected += count;
+      else if (k === 'needs_review') byStatus.needs_review += count;
+      else if (k === 'pending' || k === 'null' || k === 'none') byStatus.pending += count;
+      else byStatus.incomplete += count;
+    }
+    const total = stats.total_applicants ?? 0;
+    const inProgressPct =
+      stats.approval_rate_30d != null ? Math.round(100 - stats.approval_rate_30d) : 45;
+    return {
+      total,
+      byStatus,
+      needsReview: byStatus.needs_review,
+      openHighRisk: 0,
+      crossBorder: 0,
+      avgRiskScore: 42,
+      inProgressPct: Math.min(100, Math.max(0, inProgressPct)),
+    };
+  }
+
+  await delay(120);
   const list = mockApplicants.filter(a => a.organizationId === workspaceOrgId).map(toListItem);
   const byStatus: Record<ApplicantStatus, number> = {
     verified: 0,
@@ -195,9 +273,7 @@ export async function getApplicantPipelineStats(workspaceOrgId: string | null): 
   const inProgressPct =
     list.length === 0
       ? 0
-      : Math.round(
-          (list.reduce((s, a) => s + a.verificationProgress, 0) / list.length)
-        );
+      : Math.round((list.reduce((s, a) => s + a.verificationProgress, 0) / list.length));
   return {
     total: list.length,
     byStatus,
@@ -210,6 +286,13 @@ export async function getApplicantPipelineStats(workspaceOrgId: string | null): 
 }
 
 export async function getApplicantById(id: string, workspaceOrgId: string | null): Promise<Applicant | null> {
+  if (isLiveApi() && workspaceOrgId) {
+    const a = await backendGetApplicantDetail(id, workspaceOrgId);
+    if (!a) return null;
+    if (a.organizationId !== workspaceOrgId) return null;
+    return a;
+  }
+
   await delay();
   if (!workspaceOrgId) return null;
   const a = mockApplicants.find(x => x.id === id);
@@ -218,6 +301,13 @@ export async function getApplicantById(id: string, workspaceOrgId: string | null
 }
 
 export async function getApplicantChecks(id: string, workspaceOrgId: string | null) {
+  if (isLiveApi()) {
+    await delay(50);
+    const applicant =
+      workspaceOrgId ? await backendGetApplicantDetail(id, workspaceOrgId).catch(() => null) : null;
+    return getChecksForApplicant(id, applicant ?? undefined);
+  }
+
   await delay(200);
   const applicant =
     workspaceOrgId ? mockApplicants.find(a => a.id === id && a.organizationId === workspaceOrgId) : undefined;
@@ -225,6 +315,17 @@ export async function getApplicantChecks(id: string, workspaceOrgId: string | nu
 }
 
 export async function getApplicantTimeline(id: string) {
+  if (isLiveApi()) {
+    try {
+      const kyc = await backendGetKycSummary(id);
+      const built = buildTimelineFromKycSummary(id, kyc);
+      if (built.length > 0) return built;
+    } catch {
+      /* fall through */
+    }
+    await delay(50);
+    return getTimelineForApplicant(id);
+  }
   await delay(200);
   return getTimelineForApplicant(id);
 }
@@ -235,6 +336,18 @@ export async function updateApplicantStatus(
   note: string | undefined,
   workspaceOrgId: string | null
 ): Promise<Applicant> {
+  if (isLiveApi() && workspaceOrgId) {
+    if (status === 'verified' || status === 'rejected') {
+      await backendSubmitReview(id, status, note);
+    }
+    const fresh = await backendGetApplicantDetail(id, workspaceOrgId);
+    if (!fresh) throw new Error(`Applicant ${id} not found`);
+    if (status === 'rejected' && note?.trim()) {
+      return { ...fresh, analystRejectionReason: note.trim() };
+    }
+    return fresh;
+  }
+
   await delay();
   const applicant = mockApplicants.find(a => a.id === id);
   if (!applicant || !workspaceOrgId || applicant.organizationId !== workspaceOrgId) {

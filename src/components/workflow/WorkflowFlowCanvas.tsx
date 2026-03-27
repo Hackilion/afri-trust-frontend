@@ -149,6 +149,8 @@ export type WorkflowStepCreatePayload = {
   label?: string;
   integrationKey?: string;
   metadata?: Record<string, unknown>;
+  /** When dragging from the tier library (live API). */
+  tierProfileId?: string;
 };
 
 function WorkflowFlowCanvasInner({ workflow, readOnly, onSync, onDropStep, onRemoveStep }: InnerProps) {
@@ -249,6 +251,28 @@ function WorkflowFlowCanvasInner({ workflow, readOnly, onSync, onDropStep, onRem
     (e: React.DragEvent) => {
       e.preventDefault();
       if (readOnly) return;
+      const tierRaw = e.dataTransfer.getData('application/wf-tier');
+      if (tierRaw) {
+        try {
+          const parsed = JSON.parse(tierRaw) as {
+            tierProfileId: string;
+            name: string;
+            requiredChecks: WorkflowStep['checks'];
+          };
+          const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+          onDropStep({
+            position,
+            stepType: 'data_form',
+            tierProfileId: parsed.tierProfileId,
+            label: parsed.name,
+            required: true,
+            checks: parsed.requiredChecks?.length ? parsed.requiredChecks : undefined,
+          });
+        } catch {
+          addToast('Invalid tier payload', 'error');
+        }
+        return;
+      }
       const raw = e.dataTransfer.getData('application/wf-step');
       if (!raw) return;
       try {

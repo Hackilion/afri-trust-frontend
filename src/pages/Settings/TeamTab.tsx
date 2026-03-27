@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { UserPlus, Trash2 } from 'lucide-react';
-import { useTeam, useInviteTeamMember, useRemoveTeamMember } from '../../hooks/useSettings';
+import { useTeam, useInviteTeamMember, useRemoveTeamMember, useUpdateTeamMemberRole } from '../../hooks/useSettings';
 import { useSession } from '../../hooks/useSession';
 import { formatRelativeTime } from '../../lib/formatters';
 import { cn } from '../../lib/utils';
@@ -14,10 +14,11 @@ const ROLES: { value: TeamRole; label: string; desc: string }[] = [
 ];
 
 export function TeamTab() {
-  const { workspaceOrgId, can } = useSession();
+  const { workspaceOrgId, can, user } = useSession();
   const { data: team, isLoading } = useTeam();
   const { mutate: invite, isPending: inviting } = useInviteTeamMember();
   const { mutate: remove } = useRemoveTeamMember();
+  const { mutate: updateRole } = useUpdateTeamMemberRole();
   const canInvite = can('settings.team.invite');
   const canRemove = can('settings.team.remove');
 
@@ -111,7 +112,25 @@ export function TeamTab() {
                     </div>
                   </td>
                   <td className="px-4 py-3.5">
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 capitalize">{m.role}</span>
+                    {canInvite && m.role !== 'owner' && m.id !== user?.id ? (
+                      <select
+                        value={m.role}
+                        onChange={e =>
+                          updateRole({ userId: m.id, role: e.target.value as TeamRole })
+                        }
+                        className="text-[11px] font-semibold px-2 py-1 rounded-lg border border-gray-200 bg-white text-indigo-700 capitalize max-w-[120px]"
+                      >
+                        {(['admin', 'reviewer', 'viewer'] as const).map(r => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 capitalize">
+                        {m.role}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3.5">
                     <span className={cn('text-[11px] font-semibold px-2 py-0.5 rounded-full', m.status === 'active' ? 'bg-emerald-50 text-emerald-700' : m.status === 'invited' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500')}>

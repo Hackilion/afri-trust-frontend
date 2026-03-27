@@ -9,6 +9,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/dashboard': 'Overview',
   '/company-onboarding': 'Company onboarding',
   '/applicants': 'Applicants',
+  '/workflows': 'Workflows',
   '/settings': 'Settings',
   '/settings/api-keys': 'Settings',
   '/settings/integration-demo': 'Settings · Integration demo',
@@ -28,9 +29,11 @@ export function TopBar() {
   const { data: orgs } = useOrganizations({ enabled: isSuperAdmin });
 
   const pathBase = '/' + location.pathname.split('/')[1];
-  const isDetailPage = location.pathname.match(/^\/applicants\/APL-/);
+  const isDetailPage = /^\/applicants\/[^/]+$/.test(location.pathname);
 
-  const title = ROUTE_TITLES[location.pathname] ?? ROUTE_TITLES[pathBase] ?? 'AfriTrust';
+  const title = isDetailPage
+    ? 'Applicant profile'
+    : (ROUTE_TITLES[location.pathname] ?? ROUTE_TITLES[pathBase] ?? 'AfriTrust');
 
   const today = new Intl.DateTimeFormat('en-GB', {
     weekday: 'long',
@@ -45,7 +48,10 @@ export function TopBar() {
     : tenantOrgName;
 
   return (
-    <header className="h-14 border-b border-gray-100 bg-white/80 backdrop-blur-sm flex items-center px-6 gap-4 shrink-0 sticky top-0 z-20">
+    <header
+      data-tour="top-bar"
+      className="h-14 border-b border-gray-100 bg-white/80 backdrop-blur-sm flex items-center px-6 gap-4 shrink-0 sticky top-0 z-20"
+    >
       <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:gap-4">
         <div className="min-w-0">
           <h1 className="text-[15px] font-semibold text-gray-900 leading-none">{title}</h1>
@@ -53,7 +59,7 @@ export function TopBar() {
         </div>
 
         {isSuperAdmin && (
-          <div className="relative mt-2 sm:mt-0 flex items-center gap-2">
+          <div data-tour="top-tenant-picker" className="relative mt-2 sm:mt-0 flex items-center gap-2">
             <span className="hidden md:inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-violet-800">
               <Shield className="h-3 w-3" />
               Super admin
