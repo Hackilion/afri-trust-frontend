@@ -9,6 +9,7 @@ import {
   GitBranch,
   History,
   Loader2,
+  Plus,
   Radio,
   Rocket,
   ShieldCheck,
@@ -27,6 +28,7 @@ import {
   ASSISTANT_MODEL_DEFAULT,
   executeAssistantTool,
 } from '../../features/assistant/afritrustAssistantTools';
+import { AssistantMessageBlock } from '../../features/assistant/AssistantMessageBlock';
 import {
   assistantLlmChatCompletion,
   assistantLlmChatCompletionPlain,
@@ -37,6 +39,14 @@ import {
 import { ApiError } from '../../lib/apiClient';
 import { isLiveApi } from '../../lib/apiConfig';
 import { cn } from '../../lib/utils';
+import {
+  createAssistantSession,
+  deleteAssistantSession,
+  getAssistantSession,
+  listAssistantSessions,
+  patchAssistantSession,
+  type AssistantSessionListItem,
+} from '../../services/assistantSessionsService';
 import { useUIStore } from '../../store/uiStore';
 
 /** WebLLM Hermes-2-Pro: no `role: system` — embed copilot instructions in the first user turn. */
@@ -54,11 +64,12 @@ const ASSISTANT_SESSIONS_KEY = 'afritrust-assistant-sessions-v1';
 const MAX_ARCHIVED_SESSIONS = 12;
 
 type PersistedAssistantSnapshot = {
-  v: 1;
+  v: 1 | 2;
   updatedAt: number;
   messages: UiMessage[];
   apiMessages: ChatCompletionMessageParam[];
   toolLog: ToolLogLine[];
+  suggestionChecks?: Record<string, boolean>;
 };
 
 type ArchivedAssistantSession = {
@@ -100,13 +111,17 @@ function readDraftFromStorage(): PersistedAssistantSnapshot | null {
     const raw = localStorage.getItem(ASSISTANT_DRAFT_KEY);
     if (!raw) return null;
     const p = JSON.parse(raw) as PersistedAssistantSnapshot;
-    if (p.v !== 1 || !Array.isArray(p.messages)) return null;
+    if ((p.v !== 1 && p.v !== 2) || !Array.isArray(p.messages)) return null;
     return {
-      v: 1,
+      v: p.v === 2 ? 2 : 1,
       updatedAt: typeof p.updatedAt === 'number' ? p.updatedAt : Date.now(),
       messages: p.messages,
       apiMessages: Array.isArray(p.apiMessages) ? p.apiMessages : [],
       toolLog: Array.isArray(p.toolLog) ? p.toolLog : [],
+      suggestionChecks:
+        typeof p.suggestionChecks === 'object' && p.suggestionChecks !== null
+          ? (p.suggestionChecks as Record<string, boolean>)
+          : {},
     };
   } catch {
     return null;
@@ -120,6 +135,24 @@ function initialContextInjected(apiMsgs: ChatCompletionMessageParam[]): boolean 
     typeof firstUser.content === 'string' &&
     firstUser.content.includes('\n---\nUser request:\n')
   );
+}
+
+function parseServerSessionState(raw: Record<string, unknown>): {
+  messages: UiMessage[];
+  apiMessages: ChatCompletionMessageParam[];
+  toolLog: ToolLogLine[];
+  suggestionChecks: Record<string, boolean>;
+} {
+  const messages = Array.isArray(raw.messages) ? (raw.messages as UiMessage[]) : [];
+  const apiMessages = Array.isArray(raw.apiMessages)
+    ? (raw.apiMessages as ChatCompletionMessageParam[])
+    : [];
+  const toolLog = Array.isArray(raw.toolLog) ? (raw.toolLog as ToolLogLine[]) : [];
+  const suggestionChecks =
+    typeof raw.suggestionChecks === 'object' && raw.suggestionChecks !== null
+      ? (raw.suggestionChecks as Record<string, boolean>)
+      : {};
+  return { messages, apiMessages, toolLog, suggestionChecks };
 }
 
 function formatRelativeTime(ts: number): string {
@@ -178,12 +211,13 @@ function AssistantCategoryTile({
     <motion.button
       type="button"
       onClick={onClick}
-      whileTap={{ scale: 0.98 }}
+      whileHover={{ y: -2, transition: { type: 'spring', stiffness: 400, damping: 22 } }}
+      whileTap={{ scale: 0.97 }}
       className={cn(
-        'flex flex-col items-center justify-center gap-2 rounded-xl border p-4 transition-all',
+        'flex flex-col items-center justify-center gap-2 rounded-xl border p-4 shadow-sm transition-shadow',
         active
-          ? 'border-blue-200 bg-blue-50 shadow-sm'
-          : 'border-gray-200 bg-white hover:border-gray-300'
+          ? 'border-blue-300/80 bg-gradient-to-br from-blue-50 to-sky-50/80 shadow-md ring-2 ring-blue-100'
+          : 'border-gray-200/90 bg-white hover:border-blue-200/60 hover:shadow-md'
       )}
     >
       <Icon className={cn('h-5 w-5', active ? 'text-blue-600' : 'text-gray-500')} />
@@ -281,18 +315,33 @@ export default function AssistantPage() {
 
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
-  const [messages, setMessages] = useState<UiMessage[]>(() => draftBoot?.messages ?? []);
-  const [toolLog, setToolLog] = useState<ToolLogLine[]>(() => draftBoot?.toolLog ?? []);
+  const [messages, setMessages] = useState<UiMessage[]>(() =>
+    live ? [] : draftBoot?.messages ?? []
+  );
+  const [toolLog, setToolLog] = useState<ToolLogLine[]>(() =>
+    live ? [] : draftBoot?.toolLog ?? []
+  );
   const [showTools, setShowTools] = useState(true);
   const [activeCategory, setActiveCategory] = useState<AssistantCategoryKey | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [archivedSessions, setArchivedSessions] = useState<ArchivedAssistantSession[]>([]);
   const [archivedCount, setArchivedCount] = useState(0);
+  const [suggestionChecks, setSuggestionChecks] = useState<Record<string, boolean>>(() =>
+    live ? {} : draftBoot?.suggestionChecks ?? {}
+  );
+  const [remoteSessionId, setRemoteSessionId] = useState<string | null>(null);
+  const [remoteSessionsReady, setRemoteSessionsReady] = useState(() => !live);
+  const [historyRemoteItems, setHistoryRemoteItems] = useState<AssistantSessionListItem[]>([]);
+  const [remoteSessionCount, setRemoteSessionCount] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const historyRootRef = useRef<HTMLDivElement>(null);
 
-  const apiMessagesRef = useRef<ChatCompletionMessageParam[]>(draftBoot?.apiMessages ?? []);
-  const contextInjectedRef = useRef(initialContextInjected(draftBoot?.apiMessages ?? []));
+  const apiMessagesRef = useRef<ChatCompletionMessageParam[]>(
+    live ? [] : draftBoot?.apiMessages ?? []
+  );
+  const contextInjectedRef = useRef(
+    live ? false : initialContextInjected(draftBoot?.apiMessages ?? [])
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const refreshArchivedMeta = useCallback(() => {
@@ -305,8 +354,12 @@ export default function AssistantPage() {
 
   const readyToChat =
     live &&
+    remoteSessionsReady &&
     cloudLlmStatus !== 'loading' &&
     ((cloudLlmStatus === 'enabled' && usingCloudAssistant) || !!engine);
+
+  /** New chat / session ops: do not block on WebLLM or cloud model (only session bootstrap). */
+  const sessionActionsReady = !live || remoteSessionsReady;
 
   const prepareCopy = loadingModel ? setupPrepareCopy(loadProgressFrac) : null;
 
@@ -327,11 +380,12 @@ export default function AssistantPage() {
       }
       try {
         const snapshot: PersistedAssistantSnapshot = {
-          v: 1,
+          v: 2,
           updatedAt: Date.now(),
           messages,
           apiMessages: apiMessagesRef.current,
           toolLog,
+          suggestionChecks,
         };
         localStorage.setItem(ASSISTANT_DRAFT_KEY, JSON.stringify(snapshot));
       } catch {
@@ -339,7 +393,7 @@ export default function AssistantPage() {
       }
     }, 500);
     return () => clearTimeout(t);
-  }, [messages, toolLog, live, busy]);
+  }, [messages, toolLog, suggestionChecks, live, busy]);
 
   useEffect(() => {
     if (!historyOpen) return;
@@ -442,6 +496,81 @@ export default function AssistantPage() {
   }, [live, addToast]);
 
   useEffect(() => {
+    if (!live) {
+      setRemoteSessionsReady(true);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await listAssistantSessions(40);
+        if (cancelled) return;
+        setRemoteSessionCount(list.length);
+        if (list.length === 0) {
+          const created = await createAssistantSession();
+          if (cancelled) return;
+          const parsed = parseServerSessionState(created.state as Record<string, unknown>);
+          setMessages(parsed.messages);
+          setToolLog(parsed.toolLog);
+          setSuggestionChecks(parsed.suggestionChecks);
+          apiMessagesRef.current = parsed.apiMessages;
+          contextInjectedRef.current = initialContextInjected(parsed.apiMessages);
+          setRemoteSessionId(created.id);
+          setRemoteSessionCount(1);
+        } else {
+          const top = list[0];
+          const full = await getAssistantSession(top.id);
+          if (cancelled) return;
+          const parsed = parseServerSessionState(full.state as Record<string, unknown>);
+          setMessages(parsed.messages);
+          setToolLog(parsed.toolLog);
+          setSuggestionChecks(parsed.suggestionChecks);
+          apiMessagesRef.current = parsed.apiMessages;
+          contextInjectedRef.current = initialContextInjected(parsed.apiMessages);
+          setRemoteSessionId(full.id);
+        }
+      } catch {
+        if (!cancelled) {
+          try {
+            const created = await createAssistantSession();
+            if (!cancelled) {
+              setRemoteSessionId(created.id);
+              setRemoteSessionCount(1);
+            }
+          } catch {
+            setRemoteSessionId(null);
+          }
+        }
+      } finally {
+        if (!cancelled) setRemoteSessionsReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [live]);
+
+  useEffect(() => {
+    if (!live || !remoteSessionId || !remoteSessionsReady) return;
+    if (messages.length === 0 && toolLog.length === 0) return;
+    const t = window.setTimeout(() => {
+      const firstUser = messages.find(m => m.role === 'user');
+      const preview = (firstUser?.content ?? 'New chat').replace(/\s+/g, ' ').trim().slice(0, 120);
+      void patchAssistantSession(remoteSessionId, {
+        preview: preview || 'New chat',
+        state: {
+          v: 2,
+          messages,
+          apiMessages: apiMessagesRef.current,
+          toolLog,
+          suggestionChecks,
+        },
+      }).catch(() => {});
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [messages, toolLog, suggestionChecks, live, remoteSessionId, remoteSessionsReady]);
+
+  useEffect(() => {
     if (!live || cloudLlmStatus === 'loading') return;
     if (cloudLlmStatus === 'enabled' && usingCloudAssistant) return;
     let cancelled = false;
@@ -472,11 +601,12 @@ export default function AssistantPage() {
   const archiveCurrentIntoHistory = useCallback(() => {
     if (messages.length === 0) return;
     const snapshot: PersistedAssistantSnapshot = {
-      v: 1,
+      v: 2,
       updatedAt: Date.now(),
       messages,
       apiMessages: apiMessagesRef.current,
       toolLog,
+      suggestionChecks,
     };
     const firstUser = messages.find(m => m.role === 'user');
     const preview = (firstUser?.content ?? 'Conversation').replace(/\s+/g, ' ').trim().slice(0, 56);
@@ -488,13 +618,28 @@ export default function AssistantPage() {
     };
     writeArchivedSessions([archived, ...readArchivedSessions()].slice(0, MAX_ARCHIVED_SESSIONS));
     refreshArchivedMeta();
-  }, [messages, toolLog, refreshArchivedMeta]);
+  }, [messages, toolLog, suggestionChecks, refreshArchivedMeta]);
 
   const resetConversation = useCallback(() => {
     const hadMessages = messages.length > 0;
-    archiveCurrentIntoHistory();
+    if (!live && messages.length > 0) {
+      archiveCurrentIntoHistory();
+    }
+    if (live && remoteSessionId && remoteSessionsReady) {
+      void patchAssistantSession(remoteSessionId, {
+        preview: 'New chat',
+        state: {
+          v: 2,
+          messages: [],
+          apiMessages: [],
+          toolLog: [],
+          suggestionChecks: {},
+        },
+      }).catch(() => {});
+    }
     setMessages([]);
     setToolLog([]);
+    setSuggestionChecks({});
     apiMessagesRef.current = [];
     contextInjectedRef.current = false;
     setUsingCloudAssistant(cloudLlmStatus === 'enabled');
@@ -504,15 +649,183 @@ export default function AssistantPage() {
       /* ignore */
     }
     addToast(
-      hadMessages ? 'Conversation cleared — find it under History' : 'Conversation cleared',
+      hadMessages
+        ? live
+          ? 'Chat cleared for this session'
+          : 'Conversation cleared — find it under History'
+        : 'Conversation cleared',
       'success'
     );
-  }, [addToast, archiveCurrentIntoHistory, cloudLlmStatus, messages.length]);
+  }, [
+    addToast,
+    archiveCurrentIntoHistory,
+    cloudLlmStatus,
+    live,
+    messages.length,
+    remoteSessionId,
+    remoteSessionsReady,
+  ]);
 
-  const openHistoryPanel = useCallback(() => {
-    setArchivedSessions(readArchivedSessions());
+  const openHistoryPanel = useCallback(async () => {
+    if (live) {
+      try {
+        const list = await listAssistantSessions(40);
+        setHistoryRemoteItems(list);
+        setRemoteSessionCount(list.length);
+      } catch {
+        setHistoryRemoteItems([]);
+      }
+    } else {
+      setArchivedSessions(readArchivedSessions());
+    }
     setHistoryOpen(true);
-  }, []);
+  }, [live]);
+
+  const selectRemoteSession = useCallback(
+    async (id: string) => {
+      if (id === remoteSessionId) {
+        setHistoryOpen(false);
+        return;
+      }
+      if (live && remoteSessionId && remoteSessionsReady) {
+        try {
+          const firstUser = messages.find(m => m.role === 'user');
+          const preview = (firstUser?.content ?? 'New chat').replace(/\s+/g, ' ').trim().slice(0, 120);
+          await patchAssistantSession(remoteSessionId, {
+            preview: preview || 'New chat',
+            state: {
+              v: 2,
+              messages,
+              apiMessages: apiMessagesRef.current,
+              toolLog,
+              suggestionChecks,
+            },
+          });
+        } catch {
+          /* continue */
+        }
+      }
+      try {
+        const full = await getAssistantSession(id);
+        const p = parseServerSessionState(full.state as Record<string, unknown>);
+        setMessages(p.messages);
+        setToolLog(p.toolLog);
+        setSuggestionChecks(p.suggestionChecks);
+        apiMessagesRef.current = p.apiMessages;
+        contextInjectedRef.current = initialContextInjected(p.apiMessages);
+        setRemoteSessionId(full.id);
+        setHistoryOpen(false);
+        addToast('Opened chat', 'success');
+      } catch {
+        addToast('Could not open chat', 'error');
+      }
+    },
+    [live, remoteSessionId, remoteSessionsReady, messages, toolLog, suggestionChecks, addToast]
+  );
+
+  const startNewRemoteSession = useCallback(async () => {
+    if (!live) {
+      resetConversation();
+      return;
+    }
+    if (!remoteSessionsReady) {
+      addToast('Still syncing your sessions — try again in a moment.', 'info');
+      return;
+    }
+    const hasConversationContent = messages.length > 0 || toolLog.length > 0;
+    if (!hasConversationContent) {
+      addToast(
+        'This chat is already empty. Open History to switch or delete a session, or type a message here.',
+        'info'
+      );
+      return;
+    }
+    try {
+      if (remoteSessionId) {
+        const firstUser = messages.find(m => m.role === 'user');
+        const preview = (firstUser?.content ?? 'New chat').replace(/\s+/g, ' ').trim().slice(0, 120);
+        await patchAssistantSession(remoteSessionId, {
+          preview: preview || 'New chat',
+          state: {
+            v: 2,
+            messages,
+            apiMessages: apiMessagesRef.current,
+            toolLog,
+            suggestionChecks,
+          },
+        });
+      }
+      const created = await createAssistantSession();
+      setRemoteSessionId(created.id);
+      setRemoteSessionCount(c => c + 1);
+      setMessages([]);
+      setToolLog([]);
+      setSuggestionChecks({});
+      apiMessagesRef.current = [];
+      contextInjectedRef.current = false;
+      try {
+        localStorage.removeItem(ASSISTANT_DRAFT_KEY);
+      } catch {
+        /* ignore */
+      }
+      setUsingCloudAssistant(cloudLlmStatus === 'enabled');
+      addToast('New chat started', 'success');
+      setTimeout(() => inputRef.current?.focus(), 0);
+    } catch {
+      addToast('Could not start a new chat', 'error');
+    }
+  }, [
+    live,
+    remoteSessionId,
+    remoteSessionsReady,
+    messages,
+    toolLog,
+    suggestionChecks,
+    cloudLlmStatus,
+    addToast,
+    resetConversation,
+  ]);
+
+  const deleteRemoteSessionById = useCallback(
+    async (sessionId: string) => {
+      if (!live) return;
+      try {
+        await deleteAssistantSession(sessionId);
+        if (sessionId === remoteSessionId) {
+          const list = await listAssistantSessions(40);
+          setHistoryRemoteItems(list);
+          setRemoteSessionCount(list.length);
+          if (list.length > 0) {
+            const full = await getAssistantSession(list[0].id);
+            const p = parseServerSessionState(full.state as Record<string, unknown>);
+            setMessages(p.messages);
+            setToolLog(p.toolLog);
+            setSuggestionChecks(p.suggestionChecks);
+            apiMessagesRef.current = p.apiMessages;
+            contextInjectedRef.current = initialContextInjected(p.apiMessages);
+            setRemoteSessionId(full.id);
+          } else {
+            const created = await createAssistantSession();
+            const p = parseServerSessionState(created.state as Record<string, unknown>);
+            setMessages(p.messages);
+            setToolLog(p.toolLog);
+            setSuggestionChecks(p.suggestionChecks);
+            apiMessagesRef.current = p.apiMessages;
+            contextInjectedRef.current = initialContextInjected(p.apiMessages);
+            setRemoteSessionId(created.id);
+            setRemoteSessionCount(1);
+          }
+        } else {
+          setHistoryRemoteItems(prev => prev.filter(s => s.id !== sessionId));
+          setRemoteSessionCount(c => Math.max(0, c - 1));
+        }
+        addToast('Chat deleted', 'success');
+      } catch {
+        addToast('Could not delete chat', 'error');
+      }
+    },
+    [live, remoteSessionId, addToast]
+  );
 
   const applyArchivedSession = useCallback(
     (session: ArchivedAssistantSession) => {
@@ -520,6 +833,7 @@ export default function AssistantPage() {
       const d = session.data;
       setMessages(d.messages);
       setToolLog(d.toolLog ?? []);
+      setSuggestionChecks(d.suggestionChecks ?? {});
       apiMessagesRef.current = d.apiMessages ?? [];
       contextInjectedRef.current = initialContextInjected(apiMessagesRef.current);
       setArchivedSessions(readArchivedSessions());
@@ -529,6 +843,13 @@ export default function AssistantPage() {
     },
     [addToast, archiveCurrentIntoHistory, refreshArchivedMeta]
   );
+
+  const onToggleSuggestion = useCallback((stableId: string, checked: boolean) => {
+    setSuggestionChecks(prev => {
+      if (prev[stableId] === checked) return prev;
+      return { ...prev, [stableId]: checked };
+    });
+  }, []);
 
   const copyAssistant = (text: string) => {
     void navigator.clipboard.writeText(text).then(() => addToast('Copied', 'success'));
@@ -764,8 +1085,13 @@ export default function AssistantPage() {
   );
 
   return (
-    <div className="flex min-h-[calc(100vh-8rem)] flex-col gap-6 lg:flex-row lg:items-stretch">
-      <div className="min-w-0 flex-1 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 260, damping: 28 }}
+      className="flex min-h-[calc(100vh-8rem)] flex-col gap-6 lg:flex-row lg:items-stretch"
+    >
+      <div className="min-w-0 flex-1 rounded-2xl border border-gray-200/80 bg-gradient-to-b from-white via-white to-blue-50/30 p-6 shadow-lg shadow-blue-500/[0.06] ring-1 ring-blue-100/40">
         {!live && (
           <div className="mb-6 rounded-xl border border-amber-200/90 bg-amber-50 px-4 py-3 text-sm text-amber-950">
             Connect the <strong>live API</strong> (disable{' '}
@@ -890,7 +1216,7 @@ export default function AssistantPage() {
 
           <div
             className={cn(
-              'flex min-h-[420px] w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm',
+              'flex min-h-[420px] w-full flex-col overflow-hidden rounded-xl border border-gray-200/90 bg-white/90 shadow-md shadow-gray-200/80 backdrop-blur-sm',
               !readyToChat && 'pointer-events-none opacity-55'
             )}
           >
@@ -913,8 +1239,12 @@ export default function AssistantPage() {
                 </p>
               )}
               {messages.map(msg => (
-                <div
+                <motion.div
                   key={msg.id}
+                  layout="position"
+                  initial={{ opacity: 0, y: 14, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 380, damping: 32 }}
                   className={cn(
                     'mx-auto flex max-w-[36rem] gap-3',
                     msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'
@@ -942,7 +1272,13 @@ export default function AssistantPage() {
                         : 'rounded-tl-md border border-gray-200 bg-white text-gray-900'
                     )}
                   >
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                    <AssistantMessageBlock
+                      role={msg.role}
+                      content={msg.content}
+                      messageId={msg.id}
+                      suggestionChecks={suggestionChecks}
+                      onToggleSuggestion={onToggleSuggestion}
+                    />
                     {msg.role === 'assistant' && (
                       <button
                         type="button"
@@ -954,7 +1290,7 @@ export default function AssistantPage() {
                       </button>
                     )}
                   </div>
-                </div>
+                </motion.div>
               ))}
               {busy && (
                 <div className="mx-auto flex max-w-[36rem] items-center gap-3 pl-11">
@@ -1020,41 +1356,108 @@ export default function AssistantPage() {
                   <div className="relative" ref={historyRootRef}>
                     <button
                       type="button"
-                      onClick={() => (historyOpen ? setHistoryOpen(false) : openHistoryPanel())}
+                      onClick={() =>
+                        historyOpen ? setHistoryOpen(false) : void openHistoryPanel()
+                      }
                       className="relative rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
                       title="Past conversations"
                       aria-expanded={historyOpen}
                       aria-haspopup="listbox"
                     >
                       <History className="h-5 w-5" strokeWidth={1.75} />
-                      {archivedCount > 0 && (
+                      {(live ? remoteSessionCount > 0 : archivedCount > 0) && (
                         <span
                           className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-blue-500 opacity-90 ring-2 ring-white"
                           aria-hidden
                         />
                       )}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => void startNewRemoteSession()}
+                      disabled={!sessionActionsReady || busy}
+                      className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-30"
+                      title="New chat (saves this one first when it has messages)"
+                    >
+                      <Plus className="h-5 w-5" strokeWidth={2} />
+                    </button>
                     <AnimatePresence>
                       {historyOpen && (
                         <motion.div
-                          initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                          initial={{ opacity: 0, y: 8, scale: 0.97 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: 6, scale: 0.98 }}
-                          transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-                          className="absolute bottom-full right-0 z-50 mb-2 w-[min(18rem,calc(100vw-2.5rem))] overflow-hidden rounded-xl border border-gray-200/90 bg-white/95 shadow-lg backdrop-blur-md"
+                          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                          className="absolute bottom-full right-0 z-50 mb-2 w-[min(19rem,calc(100vw-2.5rem))] overflow-hidden rounded-2xl border border-gray-200/80 bg-white/95 shadow-xl shadow-blue-500/10 backdrop-blur-xl"
                           role="listbox"
                           aria-label="Past conversations"
                         >
-                          <div className="border-b border-gray-100/90 px-3 py-2.5">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400">
+                          <div className="border-b border-gray-100/90 bg-gradient-to-r from-blue-50/50 to-transparent px-3 py-2.5">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-500">
                               Past chats
                             </p>
-                            <p className="mt-0.5 text-[11px] leading-snug text-gray-400">
-                              Cleared threads land here — stored on this device only.
+                            <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
+                              {live
+                                ? 'Synced to your account. Use the trash icon to delete a chat (including empty ones).'
+                                : 'Stored on this device only until you use the live API.'}
                             </p>
                           </div>
-                          <ul className="max-h-[min(11.5rem,36vh)] overflow-y-auto py-1">
-                            {archivedSessions.length === 0 ? (
+                          <ul className="max-h-[min(12rem,40vh)] overflow-y-auto py-1">
+                            {live ? (
+                              historyRemoteItems.length === 0 ? (
+                                <li className="px-3 py-7 text-center text-xs leading-relaxed text-gray-400">
+                                  No saved chats yet.
+                                  <br />
+                                  <span className="text-[11px]">Use the + button to start one.</span>
+                                </li>
+                              ) : (
+                                historyRemoteItems.map(s => (
+                                  <li key={s.id} role="option" className="group flex items-stretch">
+                                    <button
+                                      type="button"
+                                      className={cn(
+                                        'flex min-w-0 flex-1 items-start gap-2.5 border-l-2 px-3 py-2.5 text-left transition-colors hover:bg-blue-50/60',
+                                        s.id === remoteSessionId
+                                          ? 'border-blue-600 bg-blue-50/40'
+                                          : 'border-transparent hover:border-blue-400/70'
+                                      )}
+                                      onClick={() => void selectRemoteSession(s.id)}
+                                    >
+                                      <span
+                                        className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gradient-to-br from-blue-500 to-sky-400 shadow-sm"
+                                        aria-hidden
+                                      />
+                                      <span className="min-w-0 flex-1">
+                                        <span className="line-clamp-2 text-xs font-medium text-gray-800">
+                                          {s.preview?.trim() || 'Chat'}
+                                        </span>
+                                        <span className="mt-0.5 block text-[10px] tabular-nums text-gray-400">
+                                          {formatRelativeTime(new Date(s.updated_at).getTime())}
+                                        </span>
+                                      </span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="flex shrink-0 items-center justify-center px-2 text-gray-300 transition-colors hover:bg-rose-50 hover:text-rose-600"
+                                      title="Delete chat"
+                                      aria-label={`Delete chat: ${s.preview?.trim() || 'Untitled'}`}
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        if (
+                                          typeof window !== 'undefined' &&
+                                          !window.confirm('Delete this chat permanently?')
+                                        ) {
+                                          return;
+                                        }
+                                        void deleteRemoteSessionById(s.id);
+                                      }}
+                                    >
+                                      <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+                                    </button>
+                                  </li>
+                                ))
+                              )
+                            ) : archivedSessions.length === 0 ? (
                               <li className="px-3 py-7 text-center text-xs leading-relaxed text-gray-400">
                                 Nothing saved yet.
                                 <br />
@@ -1226,6 +1629,6 @@ export default function AssistantPage() {
           </ul>
         </div>
       </aside>
-    </div>
+    </motion.div>
   );
 }
