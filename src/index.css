@@ -54,6 +54,31 @@ body {
   to   { opacity: 1; transform: scale(1); }
 }
 
+@keyframes tour-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes tour-spot {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes tour-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .animate-fade-in    { animation: fadeIn 0.25s ease both; }
 .animate-slide-in-r { animation: slideInRight 0.25s ease both; }
 .animate-scale-in   { animation: scaleIn 0.2s ease both; }
@@ -150,4 +175,20 @@ body {
   );
   filter: blur(64px);
   mix-blend-mode: screen;
+}
+
+/* AfriTrust mark orb (components/ui/afritrust-mark) */
+@keyframes assistant-orb-gradient-shift {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+.assistant-orb-gradient-spin {
+  animation: assistant-orb-gradient-shift 8s linear infinite;
+  transform-origin: center;
+  transform-box: fill-box;
 }

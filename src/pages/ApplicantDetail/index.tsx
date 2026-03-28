@@ -123,7 +123,7 @@ function SessionCard({ session }: { session: VerificationSession }) {
   );
 }
 
-function ConsentRow({ grant }: { grant: ConsentGrant }) {
+function ConsentRow({ grant, applicantId }: { grant: ConsentGrant; applicantId: string }) {
   const { revoke } = useConsentActions();
   const [confirmRevoke, setConfirmRevoke] = useState(false);
   const isExpired = new Date(grant.expiresAt) < new Date();
@@ -162,7 +162,10 @@ function ConsentRow({ grant }: { grant: ConsentGrant }) {
       <ConfirmDialog
         open={confirmRevoke}
         onClose={() => setConfirmRevoke(false)}
-        onConfirm={async () => { await revoke.mutateAsync(grant.id); setConfirmRevoke(false); }}
+        onConfirm={async () => {
+          await revoke.mutateAsync({ applicantId, consentId: grant.id });
+          setConfirmRevoke(false);
+        }}
         title="Revoke Consent"
         description={`Revoke data sharing consent for "${grant.grantedTo}"? The third party will no longer have access to this applicant's data.`}
         confirmLabel="Revoke"
@@ -182,7 +185,7 @@ export default function ApplicantDetail() {
   const { data: timeline } = useApplicantTimeline(id!);
   const { mutate: updateStatus, isPending } = useApplicantActions(id!, workspaceOrgId);
   const { data: sessions } = useApplicantSessions(id!);
-  const { data: consents } = useApplicantConsents(id!);
+  const { data: consents, isLoading: consentsLoading } = useApplicantConsents(id!);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [approveModalOpen, setApproveModalOpen] = useState(false);
@@ -527,14 +530,20 @@ export default function ApplicantDetail() {
           )}
 
           {/* Consent Grants */}
-          {consents && consents.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-100 p-5">
-              <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Consent Grants</h3>
+          <div className="bg-white rounded-xl border border-gray-100 p-5">
+            <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Consent Grants</h3>
+            {consentsLoading ? (
+              <LoadingSpinner className="py-6" />
+            ) : consents?.length ? (
               <div className="space-y-2">
-                {consents.map(c => <ConsentRow key={c.id} grant={c} />)}
+                {consents.map(c => (
+                  <ConsentRow key={c.id} applicantId={id!} grant={c} />
+                ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-[12px] text-gray-500">No consent grants for this applicant.</p>
+            )}
+          </div>
 
           {/* Timeline */}
           <div className="bg-white rounded-xl border border-gray-100 p-5">

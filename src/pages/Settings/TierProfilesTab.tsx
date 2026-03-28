@@ -25,7 +25,9 @@ function TierProfileCard({ profile, onEdit, onArchive }: {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className={`bg-white rounded-xl border ${profile.isArchived ? 'border-gray-200 opacity-60' : 'border-gray-200'} overflow-hidden`}>
+    <div
+      className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition-shadow hover:shadow-md ${profile.isArchived ? 'border-gray-200 opacity-60' : 'border-gray-200/90'}`}
+    >
       <div className="px-5 py-4 flex items-start gap-3">
         <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
           <Shield size={16} className="text-indigo-600" />
@@ -275,7 +277,7 @@ function TierProfileFormModal({ open, onClose, initial }: {
   );
 }
 
-export function TierProfilesTab() {
+export function TierProfilesTab({ hideHeading = false }: { hideHeading?: boolean }) {
   const [showArchived, setShowArchived] = useState(false);
   const [formModal, setFormModal] = useState<{ open: boolean; profile?: TierProfile }>({ open: false });
   const [archiveTarget, setArchiveTarget] = useState<TierProfile | null>(null);
@@ -290,11 +292,17 @@ export function TierProfilesTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-gray-900">Tier Profiles</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Define the checks and attributes required for each verification tier</p>
-        </div>
+      <div
+        className={`flex flex-wrap items-center gap-3 ${hideHeading ? 'justify-end' : 'justify-between'}`}
+      >
+        {!hideHeading && (
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">Tier Profiles</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Define the checks and attributes required for each verification tier
+            </p>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
             <input type="checkbox" checked={showArchived} onChange={e => setShowArchived(e.target.checked)} className="rounded border-gray-300" />

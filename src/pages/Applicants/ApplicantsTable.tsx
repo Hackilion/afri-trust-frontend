@@ -164,8 +164,8 @@ export function ApplicantsTable({ applicants, isLoading }: Props) {
                       <td className="px-4 py-3.5 align-middle">
                         <div className="flex items-center gap-3">
                           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-xs font-bold text-white shadow-md shadow-indigo-500/20">
-                            {a.firstName[0]}
-                            {a.lastName[0]}
+                            {(a.firstName?.[0] ?? '?').toUpperCase()}
+                            {(a.lastName?.[0] ?? '').toUpperCase()}
                           </div>
                           <div className="min-w-0">
                             <p className="truncate text-[14px] font-semibold text-slate-900 group-hover:text-indigo-700">

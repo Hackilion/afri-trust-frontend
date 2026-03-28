@@ -13,6 +13,33 @@ export const CHECK_CATALOGUE: CheckCatalogueEntry[] = [
   { id: 'address_verification', name: 'Address Verification', label: 'Address Verification', description: 'Verify residential address against utility bills or bank statements.', category: 'document', estimatedDurationSeconds: 20, requiresDocument: true },
   { id: 'biometric_dedup', name: 'Biometric Deduplication', label: 'Biometric Deduplication', description: 'Detect if this face has been verified under a different identity.', category: 'database', estimatedDurationSeconds: 30, requiresBiometric: true },
   { id: 'database_lookup', name: 'Database Lookup', label: 'Database Lookup', description: 'Cross-reference with national identity databases where available.', category: 'database', estimatedDurationSeconds: 60 },
+  {
+    id: 'selfie_capture',
+    name: 'Selfie capture',
+    label: 'Selfie capture',
+    description: 'Portrait image capture for comparison with ID photo (backend: selfie).',
+    category: 'biometric',
+    estimatedDurationSeconds: 25,
+    requiresBiometric: true,
+  },
+  {
+    id: 'video_selfie',
+    name: 'Video / guided liveness',
+    label: 'Video / guided liveness',
+    description: 'Stronger liveness using guided motion or short video (backend: liveness).',
+    category: 'biometric',
+    estimatedDurationSeconds: 35,
+    requiresBiometric: true,
+  },
+  {
+    id: 'registry_document',
+    name: 'Business registry document',
+    label: 'Business registry document',
+    description: 'Company extract, RCCM, or trade-register document (backend: government_id).',
+    category: 'document',
+    estimatedDurationSeconds: 20,
+    requiresDocument: true,
+  },
 ];
 
 export let mockTierProfiles: TierProfile[] = [
@@ -91,6 +118,7 @@ export let mockTierProfiles: TierProfile[] = [
 export let mockWorkflows: Workflow[] = [
   {
     id: 'WF-001',
+    shortCode: '100001',
     orgId: 'ORG-001',
     name: 'Retail Consumer Onboarding',
     description: 'Standard two-step flow for consumer account opening. Published and in production.',
@@ -127,6 +155,7 @@ export let mockWorkflows: Workflow[] = [
   },
   {
     id: 'WF-002',
+    shortCode: '100002',
     orgId: 'ORG-001',
     name: 'High-Value Account (EDD)',
     description: 'Full three-step enhanced due diligence for high-net-worth and corporate clients.',
@@ -175,6 +204,7 @@ export let mockWorkflows: Workflow[] = [
   },
   {
     id: 'WF-003',
+    shortCode: '100003',
     orgId: 'ORG-001',
     name: 'Biometric Premium Onboarding',
     description: 'Experimental biometric-first flow for premium tier. Draft in progress.',
@@ -221,6 +251,7 @@ export let mockWorkflows: Workflow[] = [
   },
   {
     id: 'WF-004',
+    shortCode: '100004',
     orgId: 'ORG-001',
     name: 'Legacy Basic Flow',
     description: 'Old single-step flow. Archived after retail onboarding was launched.',

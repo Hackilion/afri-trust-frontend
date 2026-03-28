@@ -24,7 +24,8 @@ export interface DashboardKpis {
   needsReview: number;
   averageVerificationTimeHours: number;
   approvalRate: number;
-  weekOverWeekGrowth: number;
+  /** Percentage points change week-over-week (submitted volume); omitted when unknown. */
+  weekOverWeekGrowth?: number;
   verificationsToday: number;
   byTier: TierBreakdown[];
   byWorkflow: WorkflowBreakdown[];

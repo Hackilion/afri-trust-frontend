@@ -21,6 +21,7 @@ import {
   dryRunWorkflow,
 } from '../services/workflowService';
 import type {
+  TierProfile,
   Workflow,
   WorkflowEnvironment,
   WorkflowGraphEdge,
@@ -40,9 +41,11 @@ export function useCheckCatalogue() {
 
 export function useTierProfiles(includeArchived = false) {
   return useQuery({
-    queryKey: ['tier-profiles', includeArchived],
-    queryFn: () => getTierProfiles(includeArchived),
-    staleTime: 30_000,
+    queryKey: ['tier-profiles'],
+    queryFn: () => getTierProfiles(true),
+    staleTime: 120_000,
+    select: (data: TierProfile[]) =>
+      includeArchived ? data : data.filter(t => !t.isArchived),
   });
 }
 
@@ -168,8 +171,12 @@ export function useWorkflowActions() {
 
   const addStep = useMutation({
     mutationFn: ({ id, step }: { id: string; step: WorkflowStepCreate }) => addWorkflowStep(id, step),
-    onSuccess: (_data, { id }) => { qc.invalidateQueries({ queryKey: ['workflows', id] }); },
-    onError: () => addToast('Failed to add step', 'error'),
+    onSuccess: (_data, { id }) => {
+      qc.invalidateQueries({ queryKey: ['workflows', id] });
+    },
+    onError: (err: Error) => {
+      addToast(err?.message?.trim() ? err.message : 'Failed to add step', 'error');
+    },
   });
 
   const removeStep = useMutation({

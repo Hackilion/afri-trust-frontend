@@ -30,7 +30,7 @@ function KpiCard({ label, value, delta, icon, accent }: KpiCardProps) {
           </span>
         )}
       </div>
-      <p className="text-[11px] text-gray-400 mt-1">vs last week</p>
+      {delta !== undefined && <p className="text-[11px] text-gray-400 mt-1">vs last week (submissions)</p>}
     </div>
   );
 }
@@ -50,9 +50,9 @@ export function KpiCards({ kpis, isLoading }: Props) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <KpiCard label="Total Applicants" value={kpis.totalApplicants} delta={weekOverWeekGrowth} icon={<Users className="w-4 h-4 text-indigo-600" />} accent="bg-indigo-50" />
-      <KpiCard label="Verified" value={kpis.verified} delta={8.2} icon={<CheckCircle className="w-4 h-4 text-emerald-600" />} accent="bg-emerald-50" />
+      <KpiCard label="Verified" value={kpis.verified} icon={<CheckCircle className="w-4 h-4 text-emerald-600" />} accent="bg-emerald-50" />
       <KpiCard label="Pending Review" value={kpis.pending + kpis.needsReview} icon={<Clock className="w-4 h-4 text-amber-600" />} accent="bg-amber-50" />
-      <KpiCard label="Rejected" value={kpis.rejected} delta={-3.1} icon={<XCircle className="w-4 h-4 text-red-500" />} accent="bg-red-50" />
+      <KpiCard label="Rejected" value={kpis.rejected} icon={<XCircle className="w-4 h-4 text-red-500" />} accent="bg-red-50" />
     </div>
   );
 }

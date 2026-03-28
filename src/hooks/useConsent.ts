@@ -34,8 +34,12 @@ export function useConsentActions(_applicantId?: string) {
   };
 
   const revoke = useMutation({
-    mutationFn: (id: string) => revokeConsent(id),
-    onSuccess: () => { invalidate(); addToast('Consent grant revoked', 'success'); },
+    mutationFn: ({ applicantId, consentId }: { applicantId: string; consentId: string }) =>
+      revokeConsent(applicantId, consentId),
+    onSuccess: () => {
+      invalidate();
+      addToast('Consent grant revoked', 'success');
+    },
     onError: () => addToast('Failed to revoke consent', 'error'),
   });
 

@@ -7,9 +7,9 @@ export let mockApiKeys: ApiKey[] = [
 ];
 
 export let mockWebhooks: Webhook[] = [
-  { id: 'WH-001', url: 'https://api.yourapp.com/webhooks/afritrust', events: ['applicant.verified', 'applicant.rejected', 'applicant.needs_review'], status: 'active', secret: 'whsec_****************************', failureCount: 0, lastTriggeredAt: new Date(Date.now() - 7200000).toISOString(), createdAt: '2026-01-20T10:00:00Z' },
-  { id: 'WH-002', url: 'https://notify.yourapp.com/kyc-events', events: ['applicant.created', 'check.completed'], status: 'active', secret: 'whsec_****************************', failureCount: 2, lastTriggeredAt: new Date(Date.now() - 86400000).toISOString(), createdAt: '2026-02-10T12:00:00Z' },
-  { id: 'WH-003', url: 'https://legacy.yourapp.com/hooks', events: ['applicant.verified'], status: 'disabled', secret: 'whsec_****************************', failureCount: 15, createdAt: '2025-12-01T09:00:00Z' },
+  { id: 'WH-001', url: 'https://api.yourapp.com/webhooks/afritrust', events: ['verification.approved', 'verification.rejected'], status: 'active', secret: 'whsec_****************************', failureCount: 0, lastTriggeredAt: new Date(Date.now() - 7200000).toISOString(), createdAt: '2026-01-20T10:00:00Z' },
+  { id: 'WH-002', url: 'https://notify.yourapp.com/kyc-events', events: ['applicant.created', 'verification.step_completed'], status: 'active', secret: 'whsec_****************************', failureCount: 2, lastTriggeredAt: new Date(Date.now() - 86400000).toISOString(), createdAt: '2026-02-10T12:00:00Z' },
+  { id: 'WH-003', url: 'https://legacy.yourapp.com/hooks', events: ['verification.approved'], status: 'disabled', secret: 'whsec_****************************', failureCount: 15, createdAt: '2025-12-01T09:00:00Z' },
 ];
 
 export let mockTeam: TeamMember[] = [

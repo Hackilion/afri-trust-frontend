@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -14,11 +14,24 @@ import {
   ShieldCheck,
   Info,
 } from 'lucide-react';
-import { useWorkflow, useWorkflowActions, useCheckCatalogue, useTierProfiles } from '../../../hooks/useWorkflows';
+import {
+  useWorkflow,
+  useWorkflowActions,
+  useCheckCatalogue,
+  useTierProfiles,
+} from '../../../hooks/useWorkflows';
+import { isLiveApi } from '../../../lib/apiConfig';
+import {
+  LIVE_API_STEP_TYPES,
+  inferDefaultChecksForStepType,
+  filterCatalogueByStepType,
+  checkCatalogueIdsForStepType,
+} from '../../../lib/workflowTierResolution';
 import { WorkflowStatusBadge } from '../../../components/shared/WorkflowStatusBadge';
 import { ConfirmDialog } from '../../../components/shared/ConfirmDialog';
 import { LoadingSpinner } from '../../../components/shared/LoadingSpinner';
 import { Modal } from '../../../components/shared/Modal';
+import { TabGuide } from '../../../components/shared/TabGuide';
 import { CopyButton } from '../../../components/shared/CopyButton';
 import {
   WorkflowFlowCanvas,
@@ -34,13 +47,13 @@ import { useDeveloperStore } from '../../../store/developerStore';
 import { useSession } from '../../../hooks/useSession';
 import { cn } from '../../../lib/utils';
 import type {
+  TierProfile,
   Workflow,
   WorkflowGraphEdge,
   WorkflowStep,
   WorkflowStepCreate,
   CheckCatalogueId,
   WorkflowStepType,
-  WorkflowEnvironment,
 } from '../../../types';
 
 const STEP_TYPES: WorkflowStepType[] = [
@@ -72,19 +85,6 @@ const STEP_TYPE_COLORS: Record<WorkflowStepType, string> = {
   webhook: 'bg-cyan-50 border-cyan-200 text-cyan-800',
   custom: 'bg-emerald-50 border-emerald-200 text-emerald-800',
 };
-
-const INDUSTRY_PRESETS = [
-  'general',
-  'banking',
-  'fintech',
-  'financial_services',
-  'insurance',
-  'telco',
-  'gaming',
-  'crypto',
-  'healthcare',
-  'enterprise',
-] as const;
 
 function workflowDefinitionJson(w: Workflow): string {
   const { steps, edges, ...meta } = w;
@@ -159,82 +159,18 @@ function ValidationSummary({ result }: { result: WorkflowValidationResult | null
   );
 }
 
-function CompanyMetadataForm({
-  workflow,
-  isEditable,
-  onPatch,
-}: {
-  workflow: Workflow;
-  isEditable: boolean;
-  onPatch: (data: Partial<Pick<Workflow, 'environment' | 'tags' | 'industryVertical'>>) => void;
-}) {
-  const [tagsInput, setTagsInput] = useState(() => (workflow.tags ?? []).join(', '));
-
-  const env = workflow.environment ?? 'production';
-  const industryValue =
-    workflow.industryVertical && INDUSTRY_PRESETS.includes(workflow.industryVertical as (typeof INDUSTRY_PRESETS)[number])
-      ? workflow.industryVertical
-      : 'general';
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3 text-xs">
-      <p className="font-semibold text-gray-500 uppercase tracking-wider text-[10px]">Company & routing</p>
-      <p className="text-[11px] text-gray-400 leading-relaxed">
-        Tags and vertical help multi-brand orgs filter workflows. Environment separates sandbox experiments from production traffic.
-      </p>
-      <div>
-        <label className="block text-[10px] font-medium text-gray-500 mb-1">Environment</label>
-        <select
-          disabled={!isEditable}
-          value={env}
-          onChange={e => onPatch({ environment: e.target.value as WorkflowEnvironment })}
-          className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs bg-white disabled:opacity-60"
-        >
-          <option value="production">Production</option>
-          <option value="sandbox">Sandbox (testing)</option>
-        </select>
-      </div>
-      <div>
-        <label className="block text-[10px] font-medium text-gray-500 mb-1">Industry / vertical</label>
-        <select
-          disabled={!isEditable}
-          value={industryValue}
-          onChange={e => onPatch({ industryVertical: e.target.value })}
-          className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs bg-white disabled:opacity-60"
-        >
-          {INDUSTRY_PRESETS.map(p => (
-            <option key={p} value={p}>
-              {p.replace(/_/g, ' ')}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label className="block text-[10px] font-medium text-gray-500 mb-1">Tags (comma-separated)</label>
-        <input
-          disabled={!isEditable}
-          value={tagsInput}
-          onChange={e => setTagsInput(e.target.value)}
-          onBlur={() => {
-            const tags = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
-            onPatch({ tags });
-          }}
-          placeholder="e.g. eu, retail, premium"
-          className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs disabled:opacity-60"
-        />
-      </div>
-    </div>
-  );
-}
-
 function AddStepPanel({
   onAdd,
   disabled,
+  tierList,
 }: {
   onAdd: (step: WorkflowStepCreate) => void;
   disabled: boolean;
+  tierList: TierProfile[] | undefined;
 }) {
+  const live = isLiveApi();
   const { data: catalogue } = useCheckCatalogue();
+  const stepTypes = live ? LIVE_API_STEP_TYPES : STEP_TYPES;
   const [selectedType, setSelectedType] = useState<WorkflowStepType>('document_upload');
   const [selectedChecks, setSelectedChecks] = useState<CheckCatalogueId[]>([]);
   const [required, setRequired] = useState(true);
@@ -243,6 +179,16 @@ function AddStepPanel({
 
   const toggleCheck = (id: CheckCatalogueId) =>
     setSelectedChecks(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
+
+  const checksForStepType = useMemo(
+    () => filterCatalogueByStepType(selectedType, catalogue ?? []),
+    [selectedType, catalogue]
+  );
+
+  useEffect(() => {
+    const allowed = new Set(checkCatalogueIdsForStepType(selectedType));
+    setSelectedChecks(prev => prev.filter(id => allowed.has(id)));
+  }, [selectedType]);
 
   const payload = (): WorkflowStepCreate =>
     buildStepCreatePayload(selectedType, selectedChecks, required, customLabel, integrationKey);
@@ -264,34 +210,23 @@ function AddStepPanel({
     setSelectedChecks([]);
   };
 
-  return (
-    <div className="bg-white rounded-xl border border-dashed border-gray-300 p-5 space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Step library</p>
-          <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
-            Drag the chip onto the canvas or use Add step. Connect node handles to branch flows; execution order follows the graph.
-          </p>
-        </div>
-        <div
-          draggable={!disabled}
-          onDragStart={e => {
-            e.dataTransfer.setData('application/wf-step', JSON.stringify(dragPayload()));
-            e.dataTransfer.effectAllowed = 'move';
-          }}
-          className={`flex shrink-0 items-center gap-1.5 rounded-lg border-2 border-indigo-200 bg-indigo-50 px-2.5 py-2 text-[11px] font-semibold text-indigo-800 ${
-            disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:bg-indigo-100'
-          }`}
-        >
-          <GripVertical size={14} className="text-indigo-400" />
-          Drag block
-        </div>
-      </div>
+  const inferredForAdd = inferDefaultChecksForStepType(selectedType);
+  const addBlockedLive =
+    live && inferredForAdd.length === 0 && selectedChecks.length === 0;
+  const activeTiers = (tierList ?? []).filter(t => !t.isArchived);
+  const noLiveTiers = live && activeTiers.length === 0;
 
+  const composeSection = (
+    <>
       <div>
-        <label className="block text-xs text-gray-500 mb-1.5">Step type</label>
+        <label className="block text-xs text-gray-500 mb-1.5">Step category</label>
+        <p className="text-[10px] text-gray-400 mb-1.5 leading-relaxed">
+          {live
+            ? 'UI grouping only. On save we resolve a tier whose required checks cover your selection (or defaults for this category).'
+            : 'Groups which catalogue checks you can attach.'}
+        </p>
         <div className="flex flex-wrap gap-1.5">
-          {STEP_TYPES.map(t => (
+          {stepTypes.map(t => (
             <button
               key={t}
               type="button"
@@ -306,7 +241,7 @@ function AddStepPanel({
         </div>
       </div>
 
-      {(selectedType === 'custom' || selectedType === 'webhook') && (
+      {!live && (selectedType === 'custom' || selectedType === 'webhook') && (
         <div className="space-y-2 rounded-lg border border-gray-100 bg-gray-50/80 p-3">
           <div>
             <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1">Label</label>
@@ -332,23 +267,31 @@ function AddStepPanel({
       )}
 
       <div>
-        <label className="block text-xs text-gray-500 mb-1.5">Checks (optional)</label>
-        <div className="grid grid-cols-2 gap-1 max-h-40 overflow-y-auto pr-1">
-          {(catalogue ?? []).map(c => (
-            <label
-              key={c.id}
-              className="flex items-center gap-1.5 p-1.5 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer text-xs"
-            >
-              <input
-                type="checkbox"
-                checked={selectedChecks.includes(c.id)}
-                onChange={() => toggleCheck(c.id)}
-                className="rounded border-gray-300 text-indigo-600 w-3 h-3"
-              />
-              <span className="text-gray-600 truncate">{c.name}</span>
-            </label>
-          ))}
-        </div>
+        <label className="block text-xs text-gray-500 mb-1.5">Checks for this category</label>
+        {checksForStepType.length === 0 ? (
+          <p className="text-[11px] text-gray-400 italic py-2">
+            No checks for this category{live ? ' in the API catalogue.' : '.'}
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-[min(320px,50vh)] overflow-y-auto pr-1">
+            {checksForStepType.map(c => (
+              <label
+                key={c.id}
+                className="flex items-center gap-1.5 p-1.5 rounded-lg border border-gray-100 hover:bg-gray-50 cursor-pointer text-xs"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedChecks.includes(c.id)}
+                  onChange={() => toggleCheck(c.id)}
+                  className="rounded border-gray-300 text-indigo-600 w-3 h-3"
+                />
+                <span className="text-gray-600 truncate" title={c.description}>
+                  {c.name}
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between gap-2 pt-1">
@@ -364,13 +307,89 @@ function AddStepPanel({
         <button
           type="button"
           onClick={handleAdd}
-          disabled={disabled}
+          disabled={disabled || addBlockedLive || noLiveTiers}
+          title={
+            noLiveTiers
+              ? 'Create at least one active tier profile (sidebar → Tier profiles) so the API can assign tier_profile_id.'
+              : addBlockedLive
+                ? 'This step category has no default checks against the API — pick at least one check or drag a tier chip.'
+                : undefined
+          }
           className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
         >
           <Plus size={12} />
           Add step
         </button>
       </div>
+    </>
+  );
+
+  return (
+    <div className="bg-white rounded-xl border border-dashed border-gray-300 p-5 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Step library</p>
+          <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
+            {live
+              ? 'Drag a tier chip for a fixed tier_profile_id, or use category + checks — we match an active tier by required checks. Graph must stay linear.'
+              : 'Drag the block or use Add step. Execution follows the graph you connect on the canvas.'}
+          </p>
+        </div>
+        <div
+          draggable={!disabled && !addBlockedLive}
+          onDragStart={e => {
+            e.dataTransfer.setData('application/wf-step', JSON.stringify(dragPayload()));
+            e.dataTransfer.effectAllowed = 'move';
+          }}
+          className={`flex shrink-0 items-center gap-1.5 rounded-lg border-2 border-indigo-200 bg-indigo-50 px-2.5 py-2 text-[11px] font-semibold text-indigo-800 ${
+            disabled || addBlockedLive ? 'opacity-40 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:bg-indigo-100'
+          }`}
+          title={live ? 'Drags the current category + selected checks (defaults apply when nothing is ticked).' : undefined}
+        >
+          <GripVertical size={14} className="text-indigo-400" />
+          Drag block
+        </div>
+      </div>
+
+      {live && activeTiers.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-gray-700 mb-1.5">Tier profiles — drag onto canvas</p>
+          <div className="flex flex-wrap gap-2 max-h-[min(280px,45vh)] overflow-y-auto pr-0.5">
+            {activeTiers.map(t => (
+              <div
+                key={t.id}
+                draggable={!disabled}
+                onDragStart={e => {
+                  e.dataTransfer.setData(
+                    'application/wf-tier',
+                    JSON.stringify({
+                      tierProfileId: t.id,
+                      name: t.name,
+                      requiredChecks: t.requiredChecks,
+                    })
+                  );
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+                  className={`px-2.5 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-[11px] font-medium text-emerald-900 max-w-[min(100%,11rem)] truncate ${
+                  disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-grab active:cursor-grabbing hover:bg-emerald-100'
+                }`}
+                title={t.description ?? t.name}
+              >
+                {t.name}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {live && activeTiers.length === 0 && (
+        <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-2">
+          No active tier profiles — create one under Tier profiles in the sidebar before adding steps, or the API cannot
+          resolve a tier_profile_id.
+        </p>
+      )}
+
+      <div className="space-y-4">{composeSection}</div>
     </div>
   );
 }
@@ -446,14 +465,6 @@ export default function WorkflowBuilder() {
     [workflow, addStep]
   );
 
-  const patchCompany = useCallback(
-    (data: Partial<Pick<Workflow, 'environment' | 'tags' | 'industryVertical'>>) => {
-      if (!workflow) return;
-      update.mutate({ id: workflow.id, data, silent: true });
-    },
-    [workflow, update]
-  );
-
   const runDryRun = async () => {
     if (!workflow) return;
     try {
@@ -509,6 +520,31 @@ export default function WorkflowBuilder() {
         </div>
       )}
 
+      <TabGuide title="Guide: workflow detail" dataTour="workflow-detail-guide">
+        <ul className="list-disc space-y-1.5 pl-4">
+          <li>
+            <strong>Draft</strong> workflows are editable on the canvas; <strong>published</strong> definitions are fixed for
+            in-flight verifications.
+          </li>
+          <li>
+            <strong>Sandbox</strong> is for safe experiments — use “Sandbox copy” to branch from production when the API allows
+            it.
+          </li>
+          <li>
+            Keep the graph <strong>linear</strong>: one path through steps. With the live API, drag <strong>tier profile</strong>{' '}
+            chips for a fixed tier, or choose a <strong>step category + checks</strong> so the backend can match an active tier.
+          </li>
+          <li>
+            Resolve every <strong>validation</strong> error before publishing; warnings are hints (e.g. optional integration
+            keys).
+          </li>
+          <li>
+            Switch to <strong>Integration preview</strong> for hosted-flow copy; turn on <strong>Dev mode</strong> for raw JSON,
+            simulation, and stricter integration-key checks.
+          </li>
+        </ul>
+      </TabGuide>
+
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -552,6 +588,15 @@ export default function WorkflowBuilder() {
             {envLabel}
           </span>
           <span className="text-sm text-gray-400">v{workflow.version}</span>
+          {workflow.shortCode && (
+            <span
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-1.5 py-0.5"
+              title="6-digit code for API (workflow_code)"
+            >
+              <span className="font-mono text-[11px] font-semibold text-gray-800">{workflow.shortCode}</span>
+              <CopyButton value={workflow.shortCode} className="!px-1.5 !py-0.5 !text-[10px]" />
+            </span>
+          )}
           {syncGraph.isPending && (
             <span className="text-[10px] font-medium uppercase tracking-wider text-indigo-500">Saving graph…</span>
           )}
@@ -660,13 +705,6 @@ export default function WorkflowBuilder() {
           <div className="space-y-4">
             <ValidationSummary result={validation} />
 
-            <CompanyMetadataForm
-              key={`${workflow.id}-${(workflow.tags ?? []).join(',')}`}
-              workflow={workflow}
-              isEditable={isEditable}
-              onPatch={patchCompany}
-            />
-
             <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-2 text-xs text-gray-500">
               <div className="flex justify-between">
                 <span>Created by</span>
@@ -676,6 +714,15 @@ export default function WorkflowBuilder() {
                 <span>Version</span>
                 <span className="text-gray-700">{workflow.version}</span>
               </div>
+              {workflow.shortCode && (
+                <div className="flex justify-between items-center gap-2">
+                  <span>Workflow code</span>
+                  <span className="inline-flex items-center gap-1 shrink-0">
+                    <span className="font-mono text-gray-700">{workflow.shortCode}</span>
+                    <CopyButton value={workflow.shortCode} className="!py-0.5 !px-1.5 !text-[10px]" />
+                  </span>
+                </div>
+              )}
               {workflow.clonedFromId && (
                 <div className="flex justify-between">
                   <span>Cloned from</span>
@@ -732,7 +779,9 @@ export default function WorkflowBuilder() {
               </div>
             )}
 
-            {isEditable && <AddStepPanel onAdd={handleAddStep} disabled={addStep.isPending} />}
+            {isEditable && (
+              <AddStepPanel onAdd={handleAddStep} disabled={addStep.isPending} tierList={tiers} />
+            )}
           </div>
         </div>
       )}
