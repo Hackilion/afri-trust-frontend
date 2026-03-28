@@ -9,5 +9,5 @@ services:
         VITE_USE_MOCK_API: ${VITE_USE_MOCK_API:-}
         VITE_ASSISTANT_MODEL_AUTODOWNLOAD: ${VITE_ASSISTANT_MODEL_AUTODOWNLOAD:-}
     ports:
-      - "${PORT:-8080}:80"
+      - "${PORT:-18080}:80"
     restart: unless-stopped
