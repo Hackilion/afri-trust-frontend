@@ -7,6 +7,7 @@ export type Capability =
   | 'nav.company_setup'
   | 'nav.applicants'
   | 'nav.workflows'
+  | 'nav.tier_profiles'
   | 'nav.audit'
   | 'nav.settings'
   | 'nav.platform'
@@ -72,6 +73,7 @@ export function getCapabilities(user: WorkspaceUser | null, impersonatedOrgId: s
     'nav.company_setup': c(inTenant && roleAllows(role, TENANT_ADMIN_ROLES)),
     'nav.applicants': c(inTenant && roleAllows(role, TENANT_READ_ROLES)),
     'nav.workflows': c(inTenant && roleAllows(role, TENANT_READ_ROLES)),
+    'nav.tier_profiles': c(inTenant && roleAllows(role, TENANT_ADMIN_ROLES)),
     'nav.audit': c(inTenant && roleAllows(role, TENANT_REVIEW_ROLES)),
     'nav.settings': c(inTenant && roleAllows(role, TENANT_READ_ROLES)),
     'nav.platform': c(Boolean(isSuper)),

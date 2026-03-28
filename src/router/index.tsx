@@ -29,7 +29,7 @@ const TeamTab = lazy(() => import('../pages/Settings/TeamTab').then(m => ({ defa
 const AppearanceTab = lazy(() =>
   import('../pages/Settings/AppearanceTab').then(m => ({ default: m.AppearanceTab }))
 );
-const TierProfilesTab = lazy(() => import('../pages/Settings/TierProfilesTab').then(m => ({ default: m.TierProfilesTab })));
+const TierProfiles = lazy(() => import('../pages/TierProfiles'));
 const CheckCatalogueTab = lazy(() => import('../pages/Settings/CheckCatalogueTab').then(m => ({ default: m.CheckCatalogueTab })));
 const IntegrationDemoTab = lazy(() =>
   import('../pages/Settings/IntegrationDemoTab').then(m => ({ default: m.IntegrationDemoTab }))
@@ -60,6 +60,7 @@ export const router = createBrowserRouter([
       { path: 'applicants/:id', element: wrap(ApplicantDetail) },
       { path: 'workflows', element: wrap(Workflows) },
       { path: 'workflows/:id', element: wrap(WorkflowBuilder) },
+      { path: 'tier-profiles', element: wrap(TierProfiles) },
       { path: 'audit-logs', element: wrap(AuditLogs) },
       { path: 'company-onboarding', element: wrap(CompanyOnboarding) },
       {
@@ -81,7 +82,7 @@ export const router = createBrowserRouter([
           { path: 'consent-identity', element: wrap(ConsentIdentityTab) },
           { path: 'team', element: wrap(TeamTab) },
           { path: 'appearance', element: wrap(AppearanceTab) },
-          { path: 'tier-profiles', element: wrap(TierProfilesTab) },
+          { path: 'tier-profiles', element: <Navigate to="/tier-profiles" replace /> },
           { path: 'check-catalogue', element: wrap(CheckCatalogueTab) },
           { path: 'integration-demo', element: wrap(IntegrationDemoTab) },
         ],

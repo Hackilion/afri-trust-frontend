@@ -11,7 +11,6 @@ const TABS: { to: string; label: string; cap: Capability }[] = [
   { to: '/settings/integration-demo', label: 'Integration demo', cap: 'settings.integration_demo' },
   { to: '/settings/team', label: 'Team', cap: 'settings.team' },
   { to: '/settings/appearance', label: 'Appearance', cap: 'settings.appearance' },
-  { to: '/settings/tier-profiles', label: 'Tier Profiles', cap: 'settings.tier_profiles' },
   { to: '/settings/check-catalogue', label: 'Check Catalogue', cap: 'settings.check_catalogue' },
 ];
 
@@ -25,7 +24,13 @@ export default function Settings() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (location.pathname === '/settings' || !visible.some(t => t.to === location.pathname)) {
+  if (location.pathname === '/settings') {
+    return <Navigate to={fallback} replace />;
+  }
+  if (
+    !visible.some(t => t.to === location.pathname) &&
+    location.pathname !== '/settings/tier-profiles'
+  ) {
     return <Navigate to={fallback} replace />;
   }
 

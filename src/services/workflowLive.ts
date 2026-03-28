@@ -221,7 +221,7 @@ export async function liveCloneWorkflowToSandbox(sourceId: string): Promise<Work
 export async function liveAddWorkflowStep(workflowId: string, step: WorkflowStepCreate): Promise<Workflow> {
   if (!step.tierProfileId?.trim()) {
     throw new Error(
-      'Live API: each step must use a tier profile. Add a tier-backed step from the Tier profiles list, or open Settings → Tier profiles to create one.'
+      'Live API: each step must use a tier profile. Add a tier-backed step from the Tier profiles list, or open Tier profiles in the sidebar to create one.'
     );
   }
   const wf = await apiGetWorkflow(workflowId);

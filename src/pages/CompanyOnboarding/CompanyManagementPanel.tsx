@@ -313,7 +313,7 @@ export function CompanyManagementPanel({ draft, currentStep, onGoToStep, identit
             )}
             {can('settings.tier_profiles') && (
               <Link
-                to="/settings/tier-profiles"
+                to="/tier-profiles"
                 className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:border-indigo-200 hover:text-indigo-800"
               >
                 <FileText className="h-3.5 w-3.5 text-indigo-500" />

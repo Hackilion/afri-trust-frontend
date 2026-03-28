@@ -79,7 +79,7 @@ function settingsTabGuideTourSteps(): TourStepDef[] {
       title: 'Guide: Tier profiles',
       body: 'How tiers bundle checks and documents — the foundation workflows use when resolving verification levels.',
       target: '[data-tour="tab-guide-panel"]',
-      navigateTo: '/settings/tier-profiles',
+      navigateTo: '/tier-profiles',
       placement: 'bottom',
       requiresCap: 'settings.tier_profiles',
     },

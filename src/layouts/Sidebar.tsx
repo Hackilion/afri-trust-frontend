@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   GitBranch,
+  Layers,
   ScrollText,
   Landmark,
   Building2,
@@ -30,6 +31,13 @@ const TENANT_NAV: NavDef[] = [
   { to: '/company-onboarding', icon: Landmark, label: 'Company setup', cap: 'nav.company_setup' },
   { to: '/applicants', icon: Users, label: 'Applicants', cap: 'nav.applicants', tour: 'tour-nav-applicants' },
   { to: '/workflows', icon: GitBranch, label: 'Workflows', cap: 'nav.workflows', tour: 'tour-nav-workflows' },
+  {
+    to: '/tier-profiles',
+    icon: Layers,
+    label: 'Tier profiles',
+    cap: 'nav.tier_profiles',
+    tour: 'tour-nav-tier-profiles',
+  },
   { to: '/audit-logs', icon: ScrollText, label: 'Audit log', cap: 'nav.audit' },
   { to: '/settings', icon: Settings, label: 'Settings', cap: 'nav.settings', end: false, tour: 'tour-nav-settings' },
 ];

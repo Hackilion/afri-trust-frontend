@@ -310,7 +310,7 @@ function AddStepPanel({
           disabled={disabled || addBlockedLive || noLiveTiers}
           title={
             noLiveTiers
-              ? 'Create at least one active tier profile under Settings so the API can assign tier_profile_id.'
+              ? 'Create at least one active tier profile (sidebar → Tier profiles) so the API can assign tier_profile_id.'
               : addBlockedLive
                 ? 'This step category has no default checks against the API — pick at least one check or drag a tier chip.'
                 : undefined
@@ -384,7 +384,7 @@ function AddStepPanel({
 
       {live && activeTiers.length === 0 && (
         <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-2">
-          No active tier profiles — create one under Settings → Tier profiles before adding steps, or the API cannot
+          No active tier profiles — create one under Tier profiles in the sidebar before adding steps, or the API cannot
           resolve a tier_profile_id.
         </p>
       )}

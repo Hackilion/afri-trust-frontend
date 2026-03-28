@@ -146,7 +146,7 @@ export function resolveTierProfileForLiveStep(
   if (!match) {
     const backendNeeded = checksToBackendValues(needed);
     throw new Error(
-      `No tier profile covers all required checks (${backendNeeded.join(', ')}). Open Settings → Tier profiles and add those check types, or drag a tier from the library.`
+      `No tier profile covers all required checks (${backendNeeded.join(', ')}). Open Tier profiles in the sidebar and add those check types, or drag a tier from the library.`
     );
   }
 
