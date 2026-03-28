@@ -1,0 +1,13 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        VITE_USE_LIVE_API: ${VITE_USE_LIVE_API:-true}
+        VITE_USE_MOCK_API: ${VITE_USE_MOCK_API:-}
+        VITE_ASSISTANT_MODEL_AUTODOWNLOAD: ${VITE_ASSISTANT_MODEL_AUTODOWNLOAD:-}
+    ports:
+      - "${PORT:-8080}:80"
+    restart: unless-stopped
