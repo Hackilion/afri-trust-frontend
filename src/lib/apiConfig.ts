@@ -1,13 +1,14 @@
 /**
  * Live API integration with `afri-trust-backend`.
  *
- * - **Dev (`npm run dev`)**: uses the live API by default via Vite `server.proxy` (`/v1` → backend).
- *   Opt out with `VITE_USE_MOCK_API=true` or `VITE_API_BASE_URL=mock`.
- * - **Production**: set `VITE_USE_LIVE_API=true` and either `VITE_API_BASE_URL=https://api.example.com`
- *   or host the API on the same origin so relative `/v1` works.
+ * **Always configure the backend with `VITE_API_BASE_URL`** (Vite exposes only `VITE_*` to the client).
+ *
+ * - **Empty / unset**: requests use relative `/v1/...` — in dev, Vite proxies `/v1` to the backend (see `vite.config.ts`).
+ * - **Set** (e.g. `http://localhost:8000`): browser calls that origin directly (ensure CORS on the API).
+ * - **`mock`**: base URL is empty and `isLiveApi()` is false when mock mode is enabled.
  */
 export function getApiBaseUrl(): string {
-  const raw = (import.meta.env.VITE_API_BASE_URL ?? '').trim();
+  const raw = String(import.meta.env.VITE_API_BASE_URL ?? 'http://142.93.42.3/').trim();
   if (raw === '' || raw === 'mock') return '';
   let base = raw.endsWith('/') ? raw.slice(0, -1) : raw;
   // All client paths include `/v1/...`. If the base URL already ends with `/v1`, drop it to avoid `/v1/v1/...`.
@@ -19,7 +20,7 @@ export function getApiBaseUrl(): string {
 }
 
 export function isLiveApi(): boolean {
-  const base = (import.meta.env.VITE_API_BASE_URL ?? '').trim();
+  const base = String(import.meta.env.VITE_API_BASE_URL ?? 'http://142.93.42.3/').trim();
   if (base === 'mock') return false;
   if (
     import.meta.env.VITE_USE_MOCK_API === 'true' ||
@@ -30,7 +31,7 @@ export function isLiveApi(): boolean {
   const explicit =
     import.meta.env.VITE_USE_LIVE_API === 'true' || import.meta.env.VITE_USE_LIVE_API === '1';
   if (explicit || base.length > 0) return true;
-  // Local dev: no .env needed — same-origin `/v1` is proxied to the backend (see vite.config.ts).
+  // Dev: empty `VITE_API_BASE_URL` → live API via same-origin `/v1` + Vite proxy.
   if (import.meta.env.DEV) return true;
   return false;
 }
