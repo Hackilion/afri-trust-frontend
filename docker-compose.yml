@@ -1,13 +1,48 @@
+# Stack: single public entry (frontend nginx) proxies /v1 → FastAPI `api`.
+# Place `.env.production` in ../afri-trust-backend/ (or adjust env_file paths).
+# Frontend build uses empty VITE_API_BASE_URL so the browser calls same-origin /v1/...
+
 services:
+  api:
+    build:
+      context: ../afri-trust-backend
+      dockerfile: Dockerfile
+    env_file:
+      - ../afri-trust-backend/.env.production
+    volumes:
+      - uploads:/app/uploads
+      - db_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   frontend:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        # Not `VITE_*` from .env — that would skip nginx. Empty = browser uses /v1 on this host.
+        # Override only if the SPA must call an API on another origin: COMPOSE_VITE_API_BASE_URL=https://...
+        VITE_API_BASE_URL: ${COMPOSE_VITE_API_BASE_URL:-}
         VITE_USE_LIVE_API: ${VITE_USE_LIVE_API:-true}
         VITE_USE_MOCK_API: ${VITE_USE_MOCK_API:-}
         VITE_ASSISTANT_MODEL_AUTODOWNLOAD: ${VITE_ASSISTANT_MODEL_AUTODOWNLOAD:-}
     ports:
-      - "${PORT:-18080}:80"
+      - "${PORT:-18088}:80"
     restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  uploads:
+  db_data:
