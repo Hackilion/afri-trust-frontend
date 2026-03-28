@@ -1,5 +1,3 @@
-/** African markets for org onboarding — ISO 3166-1 alpha-2, ITU dial codes, AU subregions. */
-
 export type AfricanSubregion =
   | 'Northern Africa'
   | 'Western Africa'
